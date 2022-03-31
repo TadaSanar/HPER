@@ -1,211 +1,283 @@
-"""
-SPProC: Sequential learning with Physical Probabilistic Constraints
-@authors: 	Armi Tiihonen, Felipe Oviedo, Shreyaa Raghavan, Zhe Liu
-MIT Photovoltaics Laboratory
-"""
-
-#Libraries: seaborn, scipy, pandas, Python 3.XX and GPyOpt are required
-
+import pickle
+import GPyOpt
 import pandas as pd
 import numpy as np
-import os
 import matplotlib
-import seaborn as sns
-import GPyOpt
-from scipy.integrate import simps
-
-import ternary
-import pickle
-import datetime
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-import matplotlib.tri as tri
-from RGB_data import RGB_data
-
 from plotting_v2 import triangleplot
-from plotting_v2 import plotBO
 
-def tolerance_factor(suggestion_df = None, tolerance_factor_bound = None):
-    if (suggestion_df is not None and tolerance_factor_bound is None):
-        # Calculate the tolerance factor for the given dataframe of suggestions.
-        tolerance_factor_series = (220+(167*suggestion_df.CsPbI +
-                                        217*suggestion_df.MAPbI +
-                                        253*suggestion_df.FAPbI))/(1.4142*(119+220))
-        # Works for materials = ['CsPbI', 'MAPbI', 'FAPbI'] only!
-        result = tolerance_factor_series
-    elif (suggestion_df is None and tolerance_factor_bound is not None):
-        tolerance_factor_constraint = str(tolerance_factor_bound) + ' - ((220+(167*x[:,0] + 217*x[:,1] + 253*x[:,2]))/(1.4142*(119+220)))' # This function is designed for these elements in this
-        # specific order only: materials = ['CsPbI', 'MAPbI', 'FAPbI']
-        result = tolerance_factor_constraint
-    else:
-        raise ValueError('This function is not intended to be used for this kind of inputs.')
+import GPy
 
-    return result
+def predict_points(GP_model, x_points, Y_train = None):
+
+    posterior_mean, posterior_std = GP_model.predict(x_points)
     
-#%%
-###############################################################################
-
-# These variables are related to data collection and computing the figure of merit.
-# Scroll down for changing variables related to the Bayesian Optimization.
+    # Normally, a GP model is trained with data that has not been scaled previously.
+    # If the model has been trained on data that has already been scaled to
+    # zero mean, unit variance (e.g., GPyOpt BayesianOptimization), original
+    # train data points, Y_train, are needed for scaling the predictions back
+    # to the original units.
+    if Y_train is not None: # The model has been trained on data that is not scaled.
+        # These values are required for scaling the model prediction back to the original units.
+        train_data_mean = np.mean(Y_train)
+        train_data_std = np.std(Y_train)
         
-# Give path to the folders that contain camera CSV data. The data will be
-# analyzed in this order. Include '/' or '\' from the end of the string.
-original_folder = os.getcwd()
-
-folders = [r'/20190606-R1-JT/BMP/RGB/Calibrated/',
-           r'/20190622-R1-JT/BMP/RGB/Calibrated/',
-           r'/20190711-R1-JT/BMP/RGB/Calibrated/',
-           r'/20190723-R1-JT/BMP/RGB/Calibrated/',
-           r'/20190809-R1-JT/BMP/RGB/Calibrated/']
-
-for n in range(len(folders)):
-    folders[n] = original_folder + folders[n]     
-
-# Give True if the data is calibrated, and False if the data is raw.
-is_calibrated = True
-# Give True if the data is RGB, and False if the data is LAB.
-is_rgb = True
-
-# Give the materials the compositions of which are being optimized. Use the
-# same format than in the 'Samples.csv' of the aging tests.
-materials = ['CsPbI', 'MAPbI', 'FAPbI']
-# Note: Current implementation of tolerance factor function works only for
-# these materials. Current implementation of solubility/DFT works only for
-# these materials in this order.
-
-# Give the cutoff (in minutes) for analyzing the data. The firs n minutes will
-# be utilized and the rest of the data is dropped off.
-cutoff = 7000
-
-# We need to drop the empty sample slots from the analysis. This is done by
-# by searching for an indicator string from 'Samples.csv', column 'Sample'. The
-# default value is '---'.
-indicator_for_empty = '---' # Or 'NA'
-
-# Choose how the possible duplicate samples (same compositions several times)
-# are treated. Write one of these options: 'first' (choose the first one of the
-# duplicates), 'last' (choose the last one of the duplicates), 'mean'
-# (calculate the mean of the duplicates, remove the original samples, and
-# replace by the mean value), or 'full' (pass all the data to the BO function
-# as such - the BO function takes into account every sample). This will treat
-# only duplicates in each round, not between the rounds. Default value is 'full'.
-duplicate_operation = 'full'
-
-###############################################################################
-
-# Collect the data and compute the figure of merit.
-
-rounds = len(folders)
-
-df_compositions = [None for j in range(rounds)]
-mean_RGB = [None for j in range(rounds)]
-red = [None for j in range(rounds)]
-blue = [None for j in range(rounds)]
-green = [None for j in range(rounds)]
-times = [None for j in range(rounds)]
-merit_area = [None for j in range(rounds)]
-merit_diff = [None for j in range(rounds)]
-merit_inv_moment = [None for j in range(rounds)]
-degradation_input = [None for j in range(rounds)]
-compositions_input = [None for j in range(rounds)]
-
-for k in range(rounds):
-    df_compositions[k] = pd.read_csv(folders[k] + 'Samples.csv')
-    #Import RGB data and sample details.
-    mean_RGB[k] = RGB_data(folders[k], df_compositions[k].get("Sample"), cutoff, is_calibrated, is_rgb)
-    #Get dataframes with sample as level
-    red[k], blue[k], green[k], times[k]= mean_RGB[k].preprocess()
+        # Scaling the normalized data back to the original units.
+        posterior_mean = posterior_mean*train_data_std+train_data_mean # Predicted y values
+        posterior_std = posterior_std*train_data_std # Std for the predictions
     
-    #Compute figure-of-merit, returns dataframe with figure of merit
-    merit_area[k] = mean_RGB[k].compute_degradation(method = 'area')
-    merit_diff[k] = mean_RGB[k].compute_degradation(method = 'diff_area')
-    merit_inv_moment[k] = mean_RGB[k].compute_degradation(method = 'inverted_moment')
+    return posterior_mean, posterior_std    
+
+def predict_points_noisy(GP_model, x_points, Y_train = None):
+
+    # Mean predictions.
+    posterior_mean, posterior_std = predict_points(GP_model, x_points, Y_train = Y_train)
     
-    #Pick the one that looks best, in this case will do merit_diff_abs
-    #Drop the empty slots and prepare the data to be fed into GpyOpt
-    print('Round ' + str(k) + ':')
-    print('These slots are empty:')
-    print(merit_diff[k][merit_diff[k]['Sample'].astype(str).str.contains(indicator_for_empty)])
-    degradation_input[k] = merit_diff[k][~merit_diff[k]['Sample'].astype(str).str.contains(indicator_for_empty)]
-    compositions_input[k] = df_compositions[k][~df_compositions[k]['Sample'].astype(str).str.contains(indicator_for_empty)]
+    # Adding noise to the predictions.
+    noise = np.random.rand(posterior_mean.shape[0], posterior_mean.shape[1]) # Values between 0 and 1.
+    noise_scaled = (noise - 0.5)*2.0
     
-    #Creating dataframe to report comparison between methods
-    merit_diff[k] = merit_diff[k][~merit_diff[k]['Sample'].astype(str).str.contains(indicator_for_empty)]
-    merit_inv_moment[k] = merit_inv_moment[k][~merit_inv_moment[k]['Sample'].astype(str).str.contains(indicator_for_empty)]
-    merit_area[k] = merit_area[k][~merit_area[k]['Sample'].astype(str).str.contains(indicator_for_empty)]
-
-os.chdir(original_folder)
-
-###############################################################################
-# These variables are related to the Bayesian optimization.
-num_cores = 1 # Not a parallel run
-composition_total = [0.995, 1] # The sum of the amount of each material will be
-# limited between these values. If you need everything to sum up to 100% within
-# 1%-units accuracy, choose [0.995, 1] (default value). If the code runs too
-# long with this value, choose [0.99,1] or even wider range. The code currently
-# works only for exactly three materials.
-tolerance_factor_bound = 0.80 # Tolerance factor will be limited above this value.
-tolerance_factor_function = tolerance_factor(suggestion_df = None, 
-                                             tolerance_factor_bound = tolerance_factor_bound)
-jitter = 0.01 # The level of exploration.
-
-
-###############################################################################
-#%%
-# BEGIN BAYESIAN OPTIMIZATION
-
-# Define the variables and the domain for each
-# One can define here also material- or round-specific parameters.
-bounds = [None for j in range(len(materials))]
-
-for j in range(len(materials)):
-    bounds[j] = {'name': materials[j], 'type': 'continuous', 'domain': (0,1)}
-
-X_rounds = [None for j in range(rounds)]
-Y_rounds = [None for j in range(rounds)]
-X_step = [np.empty((0,len(materials))) for j in range(rounds)]
-Y_step = [np.empty((0,1)) for j in range(rounds)] # Change (0,1) to (0,2) if multiobjective
-batch_size = [None for j in range(rounds)]
-constraints = [None for j in range(rounds)]
-
-for k in range(rounds):
-    batch_size[k] = len(degradation_input[0])
-    # The batch size i.e. the number of suggestions the algorithm gives is the
-    # same as the number of samples that were degraded in the first round.
-    constraints[k] = [{'name': 'constr_1', 'constraint': 'x[:,0] +x[:,1] + x[:,2] - ' + str(composition_total[1])},
-                   {'name': 'constr_2', 'constraint': str(composition_total[0])+'-x[:,0] -x[:,1] - x[:,2] '},
-                   {'name': 'constr_3', 'constraint': tolerance_factor_function}]
+    posterior_mean_noisy = posterior_mean + noise_scaled*posterior_std
     
-    # These lines perform the selected operations to the duplicate samples
-    # (choose first, choose last, choose the average, do nothing).
-    df = compositions_input[k].copy()
-    df['Merit'] = degradation_input[k]['Merit'].values
-    if duplicate_operation == 'first':
-        df = df.drop_duplicates(subset=materials, keep='first').reset_index()
-    elif duplicate_operation == 'last':
-        df = df.drop_duplicates(subset=materials, keep='last').reset_index()
-    elif duplicate_operation == 'full':
-        df = df
-    elif duplicate_operation == 'mean':
-        df = df.groupby(materials).mean().reset_index()
+    return posterior_mean_noisy, posterior_mean, posterior_std    
+
+def create_ternary_grid():
+
+    ### This grid is used for sampling+plotting the posterior mean and std_dv + acq function.
+    a = np.arange(0.0,1.0, 0.005)
+    xt, yt, zt = np.meshgrid(a,a,a, sparse=False)
+    points = np.transpose([xt.ravel(), yt.ravel(), zt.ravel()])
+    points = points[abs(np.sum(points, axis=1)-1)<0.005]
+    
+    return points
+
+def define_grid_lims_posterior(GP_model, Y_train = None, data_type = 'stability'):
+    
+    ### This grid is used for sampling+plotting the posterior mean and std_dv + acq function.
+    points = create_ternary_grid()
+    
+    # Here the posterior mean and std deviation are calculated.
+    posterior_mean, posterior_std = predict_points(GP_model, points, Y_train = Y_train)
+        
+    # Min and max values for each contour plot are determined and normalization
+    # of the color range is calculated.
+    if data_type == 'stability':
+    	axis_scale = 60 # Units from px*min to px*hour.
     else:
-        raise Exception('The given value for treating duplicate samples is not valid. Give a valid value.')
-    # X is a vector of compositions, Y is a vector of merit values.
-    X_rounds[k] = df[materials].values
-    # Reshaping is done to go from (n,) to (n,1), which is required by GPyOpt.
-    Y_rounds[k] = np.reshape(df['Merit'].values, (df['Merit'].values.shape[0], 1))
+    	axis_scale = 1
+    lims = [[np.min(posterior_mean)/axis_scale, np.max(posterior_mean)/axis_scale],
+            [np.min(posterior_std)/axis_scale, np.max(posterior_std)/axis_scale]] # For mean and std.
+
+    if data_type == 'stability':
+        cbar_label_mean = r'$I_{c}(\theta)$ (px$\cdot$h)'
+        cbar_label_std = r'Std $I_{c}(\theta)$ (px$\cdot$h)'
+        saveas_mean = 'Ic-no-grid' + np.datetime_as_string(np.datetime64('now'))
+        saveas_std = 'St-Dev-of-Ic'
+        saveas_withsamples ='Modelled-Ic-with-samples'
+    elif data_type == 'dft':
+        cbar_label_mean = r'$dG_{mix}$ (eV/f.u.)'
+        cbar_label_std = r'Std $dG_{mix}$ (eV/f.u.)'
+        saveas_mean = 'dGmix-no-grid' + np.datetime_as_string(np.datetime64('now'))
+        saveas_std = 'St-Dev-of-dGmix'
+        saveas_withsamples ='Modelled-dGmix-with-samples'
+    elif data_type == 'uniformity':
+        cbar_label_mean = r'Uniformity\n(0=high, 3=low)'
+        cbar_label_std = r'Std uniformity\n(0=high, 3=low)'
+        saveas_mean = 'Uniformity-no-grid' + np.datetime_as_string(np.datetime64('now'))
+        saveas_std = 'St-Dev-of-uniformity'
+        saveas_withsamples ='Modelled-uniformity-with-samples'
+    elif data_type == 'yellowness':
+        cbar_label_mean = 'Yellowness (0=high, 3=low)'
+        cbar_label_std = r'Std of yellowness\n(0=high, 3=low)'
+        saveas_mean = 'Yellowness-no-grid' + np.datetime_as_string(np.datetime64('now'))
+        saveas_std = 'St-Dev-of-yellowness'
+        saveas_withsamples ='Modelled-yellowness-with-samples'
+    else:
+        cbar_label_mean = r''
+        cbar_label_std = r'Std'
+        saveas_mean = 'Unknown-no-grid' + np.datetime_as_string(np.datetime64('now'))
+        saveas_std = 'St-Dev-of-unknown'
+        saveas_withsamples ='Modelled-unknown-with-samples'
+    cbar_labels = [cbar_label_mean, cbar_label_std]
+    filenames = [saveas_mean, saveas_std, saveas_withsamples]
+
+
+    return points, lims, axis_scale, posterior_mean, posterior_std, cbar_labels, filenames
+
+def plot_surf(points, y_data, norm, cmap = 'RdBu_r', cbar_label = '',
+              saveas = 'Triangle_surf'):
+
+    print(y_data.shape, points.shape)
+    print(norm)
+    print(cmap)
+    triangleplot(points, y_data, norm, cmap = cmap,
+                 cbar_label = cbar_label, saveas = saveas)
+
+def plot_surf_mean(points, posterior_mean, lims, axis_scale = 1,
+                   cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)',
+                   saveas = 'Ic-no-grid'):
     
-    # For each BayesianOp round, we include only the data that has been
-    # collected by that time.
-    for j in range(rounds):
-        if j >= k:
-            X_step[j] = np.append(X_step[j], X_rounds[k], axis=0)
-            Y_step[j] = np.append(Y_step[j], Y_rounds[k], axis=0)
+    norm = matplotlib.colors.Normalize(vmin=lims[0][0], vmax=lims[0][1])    
+    y_data = posterior_mean/axis_scale
+    plot_surf(points, y_data, norm, cbar_label = cbar_label, saveas = saveas)
     
-# Do the Bayesian Optimization.
-x_next = [None for k in range(rounds)]
-suggestion_df = [None for k in range(rounds)]
-BO_batch = [None for k in range(rounds)]
+def plot_surf_std(points, posterior_std, lims, axis_scale = 1,
+                  cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)',
+                  saveas = 'St-Dev-of-Ic'):
+    
+    norm = matplotlib.colors.Normalize(vmin=lims[1][0], vmax=lims[1][1])    
+    y_data = posterior_std/axis_scale
+    plot_surf(points, y_data, norm, cbar_label = cbar_label, saveas = saveas)
+
+def plot_surf_mean_and_points(grid_points, grid_posterior_mean, x_points, 
+                              y_points, lims, axis_scale = 1, 
+                              cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', 
+                              saveas = 'Modelled-Ic-with-samples'):
+
+    norm = matplotlib.colors.Normalize(vmin=lims[0][0], vmax=lims[0][1])
+    
+    triangleplot(grid_points, grid_posterior_mean/axis_scale, norm,
+	        cbar_label = cbar_label,
+	        saveas = saveas,
+	        scatter_points=x_points,
+	        scatter_color = np.ravel(y_points/axis_scale),
+	        cbar_spacing = None, cbar_ticks = None)	        
+
+def plot_GP(GP_model, Y_train = None, x_points = None, y_points = None, 
+            data_type = 'stability'):
+
+    points, lims, axis_scale, posterior_mean, posterior_std, cbar_labels, filenames = define_grid_lims_posterior(
+        GP_model, Y_train = Y_train, data_type = data_type)
+    
+    #original_folder = os.getcwd()
+    #os.chdir(original_folder)
+    
+
+    # Let's plot the requested points. This plot works for 3 materials only.
+        
+    plot_surf_mean(points, posterior_mean, lims, axis_scale = axis_scale,
+                   cbar_label = cbar_labels[0], saveas = filenames[0])
+    plot_surf_std(points, posterior_std, lims, axis_scale = axis_scale,
+                   cbar_label = cbar_labels[1], saveas = filenames[1])
+    
+    if x_points is not None:
+    	plot_surf_mean_and_points(points, posterior_mean, x_points, 
+                               y_points, lims, axis_scale = axis_scale,
+                               cbar_label = cbar_labels[0], saveas = filenames[2])
+
+def predict_and_plot_points(GP_model, x_points, Y_train = None, 
+                            saveas = 'Predicted-Ic-points', 
+                            noisy = False, data_type = 'stability'):
+    
+    if noisy is False:
+        y_points, y_std_points = predict_points(GP_model, x_points, Y_train = Y_train)
+    else:
+        y_points, y_points_no_noise, y_std_points = predict_points_noisy(
+            GP_model, x_points, Y_train = Y_train)
+    
+    points, lims, axis_scale, grid_posterior_mean, grid_posterior_std, cbar_labels, filenames = define_grid_lims_posterior(
+        GP_model, Y_train = Y_train, data_type = data_type)
+    
+    if x_points is not None:
+    	plot_surf_mean_and_points(points, grid_posterior_mean, x_points, 
+                               y_points, lims, axis_scale = axis_scale,
+                               cbar_label = cbar_labels[0],
+                               saveas = filenames[2])
+    	
+    return y_points, y_std_points
+
+def plot_P(GP_model, beta = 0.025, data_type = 'dft', midpoint = 0):
+    
+    points = create_ternary_grid()
+    lims = [[0,1], [0,1]] # For mean and std. Std lims are not actually used for P.
+    
+    if data_type == 'stability':
+        cbar_label_mean = r'$P_{Ic}$'
+        saveas_mean = 'P-Ic-no-grid'
+    elif data_type == 'dft':
+        cbar_label_mean = r'$P_{phasestable}$'
+        saveas_mean = 'P-dGmix-no-grid'
+    elif data_type == 'uniformity':
+        cbar_label_mean = r'P_{uniform}'
+        saveas_mean = 'P-Uniformity-no-grid'
+    elif data_type == 'yellowness':
+        cbar_label_mean = r'$P_{dark}$'
+        saveas_mean = 'P-Yellowness-no-grid'
+    else:
+        cbar_label_mean = r'P'
+        saveas_mean = 'P-no-grid'
+
+    mean, propability, conf_interval = calc_P(GP_model, points, beta = beta, midpoint = midpoint)
+    
+    plot_surf_mean(points, propability, lims, axis_scale = 1,
+                   cbar_label = cbar_label_mean, saveas = saveas_mean)
+    
+    minP = np.min(propability)
+    maxP = np.max(propability)
+    
+    return minP, maxP
+#########################################################################
+# INPUTS
+
+stability_exp_results = 'Backup-model-20190730172222' # This pickle file contains all the results from the C2a optimization.
+new_points = [[0.4,0.25,0.35]] # Give a list of points, each point is a list of 3 dimensions. These points will be predicted.
+materials = ['CsPbI', 'MAPbI', 'FAPbI'] # Material compositions are given in this order. The current implementation may or may not work with different order, so be careful.
+
+
+
+#########################################################################
+
+# Load already existing stability data as the "ground truth" of stability.
+
+with open(stability_exp_results,'rb') as f:
+    [BO_batch_objects, next_sugg_df, x_next_sugg, X_rounds, Y_rounds] = pickle.load(f
+                                                                                    )
+stability_model = BO_batch_objects[-1].model
+
+x_stability = np.concatenate(X_rounds)
+y_stability = np.concatenate(Y_rounds)
+
+# Plot the "ground-truth" stability model and all the data used for training it.
+plot_GP(stability_model, y_stability, x_points = x_stability, y_points = y_stability, 
+        data_type = 'stability')
+
+# Predict new point.
+new_points_np = np.array(new_points)
+
+predicted_y_points, predicted_y_std_points = predict_points(stability_model, 
+                                                            new_points_np, 
+                                                            y_stability)
+
+print('Predicted values:\n', predicted_y_points/60.0, '\nAnd their st devs:\n',
+      predicted_y_std_points/60.0)
+
+# Or predict new point and plot it to the triangle.
+predicted_y_points, predicted_y_std_points = predict_and_plot_points(stability_model, 
+                                                                     new_points_np, 
+                                                                     y_stability)
+
+print('Predicted values:\n', predicted_y_points/60.0, '\nAnd their st devs:\n',
+      predicted_y_std_points/60.0)
+
+# Or predict a new point and add random variation with the scale of GP model 
+#std to it, in order to model sample variability.
+predicted_y_points, predicted_y_points_no_noise, predicted_y_std_points = predict_points_noisy(
+    stability_model, new_points_np, y_stability)
+
+print('Predicted values with noise added:\n', predicted_y_points/60.0, '\nAnd their st devs:\n',
+      predicted_y_std_points/60.0)
+
+predicted_y_points, predicted_y_std_points = predict_and_plot_points(
+    stability_model, new_points_np, y_stability, noisy = True)
+
+print('Predicted values with noise added:\n', predicted_y_points/60.0, '\nAnd their st devs:\n',
+      predicted_y_std_points/60.0)
+
+##########################################################################
+
+# Create the visual data GP model. Either as a standalone or as DFT model.
+# Optimize hyperparams with BO? Use similar file format than here:
+'''
 # These files contain DFT data that is integrated into the optimization loop as
 # a soft constraint.
 DFT_files = ['/phasestability/CsFA/fulldata/CsFA_T300_above.csv', 
@@ -214,36 +286,110 @@ DFT_files = ['/phasestability/CsFA/fulldata/CsFA_T300_above.csv',
              ]
 for n in range(len(DFT_files)):
     DFT_files[n] = original_folder + DFT_files[n]
+'''
 
-for i in range(rounds):
-    print('X_step and Y_step for round ' + str(i) + ':', X_step[i], Y_step[i])
-    #Define Bayesian Opt object
-    #Instantiate BO object, f=None as we are using tabular data, no analytical function
-    BO_batch[i] = GPyOpt.methods.BayesianOptimization(f=None,  
-                                            domain = bounds,
-                                            constraints = constraints[i],
-                                            acquisition_type = 'EI_DFT',
-                                            files = DFT_files,
-                                            normalize_Y = True,
-                                            X = X_step[i],
-                                            Y = Y_step[i],
-                                            evaluator_type = 'local_penalization',
-                                            batch_size = batch_size[i],
-                                            acquisition_jitter = jitter)    
-    #Suggest next points (samples to prepare).
-    x_next[i] = BO_batch[i].suggest_next_locations()
-    suggestion_df[i] = pd.DataFrame(x_next[i], columns = materials)
-    suggestion_df[i]['Total'] = suggestion_df[i].sum(axis = 1)
-    suggestion_df[i]['Tolerance Factor'] = tolerance_factor(
-            suggestion_df = suggestion_df[i],
-            tolerance_factor_bound = None)
 
-# Plot and save the results.
-plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step)    
 
-print('Results are saved into folder ./Results.')
 
-# Save the model as an backup
-# dbfile = open('Backup-model-{date:%Y%m%d%H%M%S}'.format(date=datetime.datetime.now()), 'ab') 
-# pickle.dump([BO_batch, suggestion_df, x_next, X_rounds, Y_rounds], dbfile)                      
-# dbfile.close()
+
+
+# Added the rest of the file on 2021/11/02.
+def GP_model(files, materials = ['CsPbI', 'MAPbI', 'FAPbI'], target_variable = 'dGmix (ev/f.u.)', lengthscale = 0.03, variance = 2):
+    
+    input_data = []
+    for i in range(len(files)):
+        input_data.append(pd.read_csv(files[i]))
+    input_data = pd.concat(input_data)
+
+    X = input_data[materials] # This is 3D input
+    Y = input_data[[target_variable]] # Negative value: stable phase. Uncertainty = 0.025 
+    X = X.iloc[:,:].values # Optimization did not succeed without type conversion.
+    Y = Y.iloc[:,:].values
+    # RBF kernel
+    kernel = GPy.kern.RBF(input_dim=X.shape[1], lengthscale=lengthscale, variance=variance)
+    model = GPy.models.GPRegression(X,Y,kernel)
+    
+    # optimize and plot
+    model.optimize(messages=True,max_f_eval = 100)
+    
+    
+    return model
+    
+def calc_P(GP_model, points, beta = 0.025, midpoint = 0):
+    
+    mean = GP_model.predict_noiseless(points)
+    mean = mean[0] # TO DO: issue here with dimensions?
+    conf_interval = GP_model.predict_quantiles(np.array(points)) # 95% confidence interval by default. TO DO: Do we want to use this for something?
+
+    propability = 1/(1+np.exp((mean-midpoint)/beta)) # Inverted because the negative Gibbs energies are the ones that are stable.
+    
+    return mean, propability, conf_interval
+
+# TO DO: Is this function deprecated or still in use somewhere? The above is almost the same.
+def mean_and_propability(x, model):#, variables):
+    mean = model.predict_noiseless(x) # Manual: "This is most likely what you want to use for your predictions."
+    mean = mean[0] # TO DO: issue here with dimensions?
+    conf_interval = model.predict_quantiles(np.array(x)) # 95% confidence interval by default. TO DO: Do we want to use this for something?
+
+    propability = 1/(1+np.exp(mean/0.025)) # Inverted because the negative Gibbs energies are the ones that are stable.
+    
+    return mean, propability, conf_interval
+
+# For testing of GP_model() and mean_and_propability():
+DFT_files = ['./phasestability/CsFA/fulldata/CsFA_T300_above.csv', 
+             './phasestability/FAMA/fulldata/FAMA_T300_above.csv', 
+             './phasestability/CsMA/fulldata/CsMA_T300_above.csv']
+
+DFT_model = GP_model(DFT_files)
+
+plot_GP(DFT_model, x_points = DFT_model.X, y_points = DFT_model.Y, 
+             data_type = 'dft')
+
+predicted_y_points, predicted_y_std_points = predict_and_plot_points(
+    DFT_model, new_points_np, data_type = 'dft')
+
+print('Predicted DFT values:\n', predicted_y_points, '\nAnd their st devs:\n',
+      predicted_y_std_points)
+
+plot_P(DFT_model, beta = 0.025, data_type = 'dft')
+###############################################################################
+
+visual_files = ['./visualquality/visualquality_round_0-1.csv']
+
+uniformity_model = GP_model(visual_files, materials = materials, target_variable = 'Uniformity', lengthscale = 0.1, variance = 0.1)
+
+plot_GP(uniformity_model, x_points = uniformity_model.X, y_points = uniformity_model.Y, 
+             data_type = 'uniformity')
+
+minP, maxP = plot_P(uniformity_model, beta = 0.5, data_type = 'uniformity', midpoint = 1.5)
+print(minP, maxP)
+predicted_y_points, predicted_y_std_points = predict_and_plot_points(
+    uniformity_model, new_points_np, data_type = 'uniformity')
+
+print('Predicted uniformity values:\n', predicted_y_points, '\nAnd their st devs:\n',
+      predicted_y_std_points)
+
+
+yellowness_model = GP_model(visual_files, materials = materials, target_variable = 'Yellowness', lengthscale = 0.1, variance = 0.1)
+
+plot_GP(yellowness_model, x_points = yellowness_model.X, y_points = yellowness_model.Y, 
+             data_type = 'yellowness')
+
+minP, maxP = plot_P(yellowness_model, beta = 0.5, data_type = 'yellowness', midpoint = 1.5)
+print(minP, maxP)
+
+predicted_y_points, predicted_y_std_points = predict_and_plot_points(
+    yellowness_model, new_points_np, data_type = 'yellowness')
+
+print('Predicted yellowness values:\n', predicted_y_points, '\nAnd their st devs:\n',
+      predicted_y_std_points)
+
+
+
+
+
+# TO DO: The hyperparamas for yellowness and uniformity are not good. Implement a raw optimization. (Should be replaced by BO in the end.)
+
+
+# TO DO: Run BO without DFT but with yellowness model. See what happens.
+# Implement BO that samples from a function.

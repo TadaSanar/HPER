@@ -56,9 +56,10 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         
         im3 = ax.scatter(x_p, y_p, s=8, c=scatter_color, cmap=cmap, edgecolors='black', linewidths=.5, alpha=1, zorder=2, norm=norm)
     # plot the contour
-    if surf_levels is None:
+    if surf_levels is None: # A solution that typically looks good for camera data.
     #    im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels)
     #else:
+        print(norm.vmin, norm.vmax)
         nlevels = 8
         minvalue = 0
         if norm.vmin < minvalue:
@@ -67,7 +68,10 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
             minvalue = norm.vmin
         surf_levels = np.arange(minvalue, norm.vmax, (norm.vmax-minvalue)/nlevels)
         surf_levels = np.round(surf_levels, -int(np.floor(np.log10(norm.vmax))-1))#2))
-        surf_levels = np.append(surf_levels, 2*surf_levels[-1] - surf_levels[-2])
+        surf_levels = np.unique(np.append(surf_levels, 2*surf_levels[-1] - surf_levels[-2]))
+    if np.std(surf_levels) == 0: # The above automatic solution does not work for <1 values, resulting in constant surf levels. In these cases, it is best to fall back to automatic.
+        surf_levels = np.arange(norm.vmin, norm.vmax, (norm.vmax-norm.vmin)/nlevels)
+    print(x.shape, y.shape, T.triangles.shape, v.shape, surf_levels)
     im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels)
     
     myformatter=matplotlib.ticker.ScalarFormatter()
@@ -78,15 +82,28 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         cbar=plt.colorbar(im, ax=ax, format=myformatter, spacing=surf_levels, ticks=surf_levels)
     cbar.set_label(cbar_label)#, labelpad = -0.5)
     plt.axis('off')
+# =============================================================================
+#     Values used in C2a:
+#     plt.text(0.35,-0.1,'Cs (%)')
+#     plt.text(0.10,0.54,'FA (%)', rotation=61)
+#     plt.text(0.71,0.51,'MA (%)', rotation=-61)
+#     plt.text(-0.0, -0.1, '0')
+#     plt.text(0.87, -0.1, '100')
+#     plt.text(-0.07, 0.13, '100', rotation=61)
+#     plt.text(0.39, 0.83, '0', rotation=61)
+#     plt.text(0.96, 0.05, '0', rotation=-61)
+#     plt.text(0.52, 0.82, '100', rotation=-61)
+#     
+# =============================================================================
     plt.text(0.35,-0.1,'Cs (%)')
-    plt.text(0.10,0.54,'FA (%)', rotation=61)
-    plt.text(0.71,0.51,'MA (%)', rotation=-61)
+    plt.text(0.09,0.34,'FA (%)', rotation=61)
+    plt.text(0.71,0.31,'MA (%)', rotation=-61)
     plt.text(-0.0, -0.1, '0')
     plt.text(0.87, -0.1, '100')
-    plt.text(-0.07, 0.13, '100', rotation=61)
-    plt.text(0.39, 0.83, '0', rotation=61)
+    plt.text(-0.08, 0.05, '100', rotation=61)
+    plt.text(0.38, 0.83, '0', rotation=61)
     plt.text(0.96, 0.05, '0', rotation=-61)
-    plt.text(0.52, 0.82, '100', rotation=-61)
+    plt.text(0.52, 0.75, '100', rotation=-61)
     
     # create the grid
     corners = np.array([[0, 0], [1, 0], [0.5,  np.sqrt(3)*0.5]])
@@ -181,7 +198,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         inputs = compositions_input[i]
         inputs['Ic (px*min)'] = degradation_input[i]['Merit']
         inputs=inputs.sort_values('Ic (px*min)')
-        inputs=inputs.drop(columns=['Unnamed: 0'])
+        inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
         inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+'.csv', float_format='%.3f')
         # : Here the posterior mean and std_dv+acquisition function are calculated and saved to csvs.
         posterior_mean[i],posterior_std[i] = BO_batch[i].model.predict(points) # MAKING THE PREDICTION
@@ -231,8 +248,9 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     orig_cmap = mpl.cm.RdBu
     shifted_cmap = shiftedColorMap(orig_cmap, start=0, midpoint=0.000005, stop=1, name='shifted')
     # Colors of the samples in each round.     
-    newPal = {0:'k', 1:'k', 2:'k', 3:'k', 4: 'k'}#{0:'#8b0000', 1:'#7fcdbb', 2:'#9acd32', 3:'#ff4500', 4: 'k'} #A14
+    newPal = {}#0:'k', 1:'k', 2:'k', 3:'k', 4: 'k'}#{0:'#8b0000', 1:'#7fcdbb', 2:'#9acd32', 3:'#ff4500', 4: 'k'} #A14
     for i in range(rounds):
+        newPal[i] = 'k'
         print('Round: ', i) #A14
         if i==0:
             # In the first round there is an even distribution.

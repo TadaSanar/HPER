@@ -12,6 +12,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.tri as tri
+import datetime
 
 script_dir = os.path.dirname(__file__)
 results_dir = os.path.join(script_dir, 'Results/')
@@ -235,13 +236,15 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     norm = matplotlib.colors.Normalize(vmin=lims[0][0], vmax=lims[0][1])    
     for i in range(rounds):
         triangleplot(points, posterior_mean[i]/axis_scale, norm, cmap = 'RdBu_r',
-                 cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = 'Modelled-Ic-no-grid-round'+str(i)) #A14
+                 cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = 'Modelled-Ic-no-grid-round'+str(i)+
+                 datetime.datetime.now().strftime("%Y%m%d%H%M%S")) #A14
 
 
     norm = matplotlib.colors.Normalize(vmin=lims[1][0], vmax=lims[1][1])
     for i in range(rounds):
         triangleplot(points, posterior_std[i]/axis_scale, norm, cmap = 'RdBu_r',
-                 cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)', saveas = 'St-Dev-of-modelled-Ic-round'+str(i)) #A14
+                 cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)', saveas = 'St-Dev-of-modelled-Ic-round'+str(i)+
+                 datetime.datetime.now().strftime("%Y%m%d%H%M%S")) #A14
 
     norm = matplotlib.colors.Normalize(vmin=lims[2][0], vmax=lims[2][1])
     # Shift the colormap (removes the red background that appears with the std colormap)
@@ -263,7 +266,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         triangleplot(test_data[:,0:3], test_data[:,3], norm,
                      surf_axis_scale = 1.0, cmap = 'shifted',
                      cbar_label = r'$EIC(\theta, \beta_{DFT})$', #A14
-                     saveas = 'EIC-with-single-round-samples-round'+str(i), #A14
+                     saveas = 'EIC-with-single-round-samples-round'+str(i)+datetime.datetime.now().strftime("%Y%m%d%H%M%S"), #A14
                      surf_levels = (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8,1),
                      scatter_points=X_rounds[i], scatter_color = newPal[i],
                      cbar_spacing = 'proportional',
@@ -281,7 +284,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         triangleplot(test_data[:,0:3], test_data[:,3], norm,
                      surf_axis_scale = 1.0, cmap = 'shifted',
                      cbar_label = r'$EIC(\theta, \beta_{DFT})$', #A14
-                     saveas = 'EIC-round'+str(i), #A14
+                     saveas = 'EIC-round'+str(i)+datetime.datetime.now().strftime("%Y%m%d%H%M%S"), #A14
                      surf_levels = (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8,1),
                      cbar_spacing = 'proportional',
                      cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
@@ -292,8 +295,9 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         triangleplot(points, posterior_mean[i]/axis_scale, norm,
                      cmap = 'RdBu_r',
                      cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', #A14
-                     saveas = 'Modelled-Ic-with-samples-round'+str(i), #A14
+                     saveas = 'Modelled-Ic-with-samples-round'+str(i)+datetime.datetime.now().strftime("%Y%m%d%H%M%S"), #A14
                      scatter_points=X_step[i],
                      scatter_color = np.ravel(Y_step[i]/axis_scale),
                      cbar_spacing = None, cbar_ticks = None)
 
+    plt.close('all')

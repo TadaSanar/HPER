@@ -219,7 +219,9 @@ def plot_P(GP_model, beta = 0.025, data_type = 'dft', midpoint = 0):
 #########################################################################
 # INPUTS
 
-stability_exp_results = 'Backup-model-20190730172222' # This pickle file contains all the results from the C2a optimization.
+stability_exp_results_path = './Source_data/Backup-model-20190730172222' # This pickle file contains all the results from the C2a optimization.
+yellowness_model_path = './Source_data/Yellowness_GPR_model_20220801'
+
 new_points = [[0.4,0.25,0.35]] # Give a list of points, each point is a list of 3 dimensions. These points will be predicted.
 materials = ['CsPbI', 'MAPbI', 'FAPbI'] # Material compositions are given in this order. The current implementation may or may not work with different order, so be careful.
 
@@ -229,9 +231,9 @@ materials = ['CsPbI', 'MAPbI', 'FAPbI'] # Material compositions are given in thi
 
 # Load already existing stability data as the "ground truth" of stability.
 
-with open(stability_exp_results,'rb') as f:
-    [BO_batch_objects, next_sugg_df, x_next_sugg, X_rounds, Y_rounds] = pickle.load(f
-                                                                                    )
+with open(stability_exp_results_path,'rb') as f:
+    [BO_batch_objects, next_sugg_df, x_next_sugg, X_rounds, Y_rounds] = pickle.load(f)
+
 stability_model = BO_batch_objects[-1].model
 
 x_stability = np.concatenate(X_rounds)
@@ -335,7 +337,8 @@ def mean_and_propability(x, model):#, variables):
     
     return mean, propability, conf_interval
 
-# For testing of GP_model() and mean_and_propability():
+'''
+# For testing of GP_model() and mean_and_propability() with DFT data:
 DFT_files = ['./phasestability/CsFA/fulldata/CsFA_T300_above.csv', 
              './phasestability/FAMA/fulldata/FAMA_T300_above.csv', 
              './phasestability/CsMA/fulldata/CsMA_T300_above.csv']
@@ -352,7 +355,11 @@ print('Predicted DFT values:\n', predicted_y_points, '\nAnd their st devs:\n',
       predicted_y_std_points)
 
 plot_P(DFT_model, beta = 0.025, data_type = 'dft')
+'''
 ###############################################################################
+
+'''
+# For doing the same with a model estimating the spatial uniformity of the sample films.
 
 visual_files = ['./visualquality/visualquality_round_0-1.csv']
 
@@ -368,9 +375,14 @@ predicted_y_points, predicted_y_std_points = predict_and_plot_points(
 
 print('Predicted uniformity values:\n', predicted_y_points, '\nAnd their st devs:\n',
       predicted_y_std_points)
+'''
+###############################################################################
+# Do the same as above for DFT and uniformity, to yellowness of the sample (est.
+# by a human).
 
-
-yellowness_model = GP_model(visual_files, materials = materials, target_variable = 'Yellowness', lengthscale = 0.1, variance = 0.1)
+#yellowness_model = GP_model(visual_files, materials = materials, target_variable = 'Yellowness', lengthscale = 0.1, variance = 0.1)
+with open(yellowness_model_path,'rb') as f:
+    yellowness_model = pickle.load(f)
 
 plot_GP(yellowness_model, x_points = yellowness_model.X, y_points = yellowness_model.Y, 
              data_type = 'yellowness')
@@ -388,8 +400,3 @@ print('Predicted yellowness values:\n', predicted_y_points, '\nAnd their st devs
 
 
 
-# TO DO: The hyperparamas for yellowness and uniformity are not good. Implement a raw optimization. (Should be replaced by BO in the end.)
-
-
-# TO DO: Run BO without DFT but with yellowness model. See what happens.
-# Implement BO that samples from a function.

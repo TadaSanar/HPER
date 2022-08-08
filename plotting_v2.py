@@ -176,7 +176,7 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
 
     return newcmap
 
-def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step):
+def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step, limit_file_number = True):
     #%%    
     ### This grid is used for sampling+plotting the posterior mean and std_dv + acq function.
     a = np.arange(0.0,1.0, 0.005)
@@ -195,12 +195,12 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     # SAVE RESULTS TO CSV FILES
     ###############################################################################
     for i in range(rounds):
-        suggestion_df[i].to_csv(results_dir + 'Bayesian_suggestion_round_'+str(i)+'.csv', float_format='%.3f')
+        suggestion_df[i].to_csv(results_dir + 'Bayesian_suggestion_round_'+str(i)+'{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
         inputs = compositions_input[i]
         inputs['Ic (px*min)'] = degradation_input[i]['Merit']
         inputs=inputs.sort_values('Ic (px*min)')
         inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
-        inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+'.csv', float_format='%.3f')
+        inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+'{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
         # : Here the posterior mean and std_dv+acquisition function are calculated and saved to csvs.
         posterior_mean[i],posterior_std[i] = BO_batch[i].model.predict(points) # MAKING THE PREDICTION
         # Scaling the normalized data back to the original units.
@@ -214,10 +214,27 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         inputs2['Ic (px*min)']=posterior_mean[i]
         inputs2['Std of Ic (px*min)']=posterior_std[i]
         inputs2['EIC']=acq_normalized[i]
-        inputs2.to_csv(results_dir + 'Model_round_' + str(i) + '.csv', float_format='%.3f')
+        inputs2.to_csv(results_dir + 'Model_round_' + str(i) + '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
         
     
     
+    
+    ###############################################################################
+    # ALL PLOTS
+    ###############################################################################
+    
+    if limit_file_number == True:
+        
+        # Limit the number of plotting files to 5/BO cycle/plot type.
+        # Additionally, only the most essential plots will be created.
+        
+        if rounds > 5:
+            
+            rounds_to_plot = [0, 1, 2, int(np.floor(rounds/2)), (rounds-1)]
+    
+    else:
+        
+        rounds_to_plot = range(rounds)
     
     ###############################################################################
     # PLOT MERIT
@@ -234,14 +251,15 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
             [np.min(acq_normalized), np.max(acq_normalized)]] # For mean, std, and acquisition.
     
     norm = matplotlib.colors.Normalize(vmin=lims[0][0], vmax=lims[0][1])    
-    for i in range(rounds):
-        triangleplot(points, posterior_mean[i]/axis_scale, norm, cmap = 'RdBu_r',
-                 cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = 'Modelled-Ic-no-grid-round'+str(i)+
-                 datetime.datetime.now().strftime("%Y%m%d%H%M%S")) #A14
+    if limit_file_number == False:
+        for i in rounds_to_plot:
+            triangleplot(points, posterior_mean[i]/axis_scale, norm, cmap = 'RdBu_r',
+                     cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = 'Modelled-Ic-no-grid-round'+str(i)+
+                     datetime.datetime.now().strftime("%Y%m%d%H%M%S")) #A14
 
 
     norm = matplotlib.colors.Normalize(vmin=lims[1][0], vmax=lims[1][1])
-    for i in range(rounds):
+    for i in rounds_to_plot:
         triangleplot(points, posterior_std[i]/axis_scale, norm, cmap = 'RdBu_r',
                  cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)', saveas = 'St-Dev-of-modelled-Ic-round'+str(i)+
                  datetime.datetime.now().strftime("%Y%m%d%H%M%S")) #A14
@@ -252,7 +270,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     shifted_cmap = shiftedColorMap(orig_cmap, start=0, midpoint=0.000005, stop=1, name='shifted')
     # Colors of the samples in each round.     
     newPal = {}#0:'k', 1:'k', 2:'k', 3:'k', 4: 'k'}#{0:'#8b0000', 1:'#7fcdbb', 2:'#9acd32', 3:'#ff4500', 4: 'k'} #A14
-    for i in range(rounds):
+    for i in rounds_to_plot:
         newPal[i] = 'k'
         print('Round: ', i) #A14
         if i==0:
@@ -271,27 +289,28 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
                      scatter_points=X_rounds[i], scatter_color = newPal[i],
                      cbar_spacing = 'proportional',
                      cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
-    for i in range(rounds):
-        print('Round: ', i) #A14
-        if i==0:
-            # In the first round there is a even distribution.
-            test_data = np.concatenate((points, acq_normalized[i]), axis=1)
-            test_data = test_data[test_data[:,3] != 0]
-            test_data[:,3] = np.ones(test_data[:,3].shape)*0.3
-        else:
-            test_data = np.concatenate((points, acq_normalized[i-1]), axis=1)
-            test_data = test_data[test_data[:,3] != 0]
-        triangleplot(test_data[:,0:3], test_data[:,3], norm,
-                     surf_axis_scale = 1.0, cmap = 'shifted',
-                     cbar_label = r'$EIC(\theta, \beta_{DFT})$', #A14
-                     saveas = 'EIC-round'+str(i)+datetime.datetime.now().strftime("%Y%m%d%H%M%S"), #A14
-                     surf_levels = (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8,1),
-                     cbar_spacing = 'proportional',
-                     cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
+    if limit_file_number == False:
+        for i in rounds_to_plot:
+            print('Round: ', i) #A14
+            if i==0:
+                # In the first round there is a even distribution.
+                test_data = np.concatenate((points, acq_normalized[i]), axis=1)
+                test_data = test_data[test_data[:,3] != 0]
+                test_data[:,3] = np.ones(test_data[:,3].shape)*0.3
+            else:
+                test_data = np.concatenate((points, acq_normalized[i-1]), axis=1)
+                test_data = test_data[test_data[:,3] != 0]
+            triangleplot(test_data[:,0:3], test_data[:,3], norm,
+                         surf_axis_scale = 1.0, cmap = 'shifted',
+                         cbar_label = r'$EIC(\theta, \beta_{DFT})$', #A14
+                         saveas = 'EIC-round'+str(i)+datetime.datetime.now().strftime("%Y%m%d%H%M%S"), #A14
+                         surf_levels = (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8,1),
+                         cbar_spacing = 'proportional',
+                         cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
     #A14
     norm = matplotlib.colors.Normalize(vmin=lims[0][0], vmax=lims[0][1])
     sample_points = np.empty((0,3))
-    for i in range(rounds):
+    for i in rounds_to_plot:
         triangleplot(points, posterior_mean[i]/axis_scale, norm,
                      cmap = 'RdBu_r',
                      cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', #A14

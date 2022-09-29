@@ -70,22 +70,19 @@ def predict_points(GP_model, x_points, Y_train = None):
         
         # Scaling the normalized data back to the original units.
         posterior_mean = posterior_mean*train_data_std+train_data_mean # Predicted y values
-        posterior_std = posterior_std*train_data_std # Std for the predictions
+        posterior_std = posterior_std*train_data_std # Std for the predictions        
     
     return posterior_mean, posterior_std    
 
 def predict_points_noisy(GP_model, x_points, Y_train = None):
 
-    # Mean predictions.
+    # Predictions.
     posterior_mean, posterior_std = predict_points(GP_model, x_points, Y_train = Y_train)
     
-    # Adding noise to the predictions.
-    noise = np.random.rand(posterior_mean.shape[0], posterior_mean.shape[1]) # Values between 0 and 1.
-    noise_scaled = (noise - 0.5)*2.0
+    # Adding Gaussian noise to the mean predictions.
+    posterior_mean_noisy = np.random.normal(posterior_mean, posterior_std)
     
-    posterior_mean_noisy = posterior_mean + noise_scaled*posterior_std
-    
-    return posterior_mean_noisy, posterior_mean, posterior_std    
+    return posterior_mean_noisy, posterior_mean, posterior_std
 
 def predict_points_noisy_c2a(GP_model, x_points, y_ground_truth):
     
@@ -93,7 +90,11 @@ def predict_points_noisy_c2a(GP_model, x_points, y_ground_truth):
     
     return mean_noisy
 
-
+def predict_points_c2a(GP_model, x_points, y_ground_truth):
+    
+    mean, std = predict_points(GP_model, x_points, Y_train = y_ground_truth)
+    
+    return mean
 
 #%%
 ###############################################################################
@@ -143,18 +144,18 @@ def ei_dft_param_builder(acquisition_type,
             if files == None:
                 
                 # Visual quality of the samples as a constraint.              
-                files = [['./visualquality/visualquality_round_0.csv']]
+                files = [['./visualquality/visualquality_round_0-1.csv']]
                 
             if data_fusion_input_variables == None:
-                variable = 'Yellowness'
+                variable = 'Quality'
             if lengthscale == None: # For Gaussian process regression
                 lengthscale = 0.1
             if variance == None: # For GPR
                 variance = 0.1
             if beta == None: # For probability model
-                beta = 0.5
+                beta = 0.1#0.2#25
             if midpoint == None: # For P model
-                midpoint = 1.5 # For P    
+                midpoint = 0 # For P    
     
         elif data_fusion_target_variable == 'cutoff':
             
@@ -318,11 +319,11 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
                                             lengthscale, variance,
                                             materials)
             
-            # Then data_fusion_data is cleared, and new data sampled only
+            # Then data_fusion_data is cleared. New data will be sampled only
             # when the BO algo requires it.
             data_fusion_data = [pd.DataFrame(columns = materials + [data_fusion_variable])]
-
-           
+            
+            print("Data fusion model created.")
 
     
    ###############################################################################
@@ -429,8 +430,9 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
         # TO DO Poista käytöstä.
         # TO DO: Generalize to more than three materials or shift up to the user defined part.
         constraints[k] = [{'name': 'constr_1', 'constraint': 'x[:,0] +x[:,1] + x[:,2] - ' + str(composition_total[1])},
-                           {'name': 'constr_2', 'constraint': str(composition_total[0])+'-x[:,0] -x[:,1] - x[:,2] '},
-                           {'name': 'constr_3', 'constraint': tolerance_factor_function}]
+                           {'name': 'constr_2', 'constraint': str(composition_total[0])+'-x[:,0] -x[:,1] - x[:,2] '}#,
+                           #{'name': 'constr_3', 'constraint': tolerance_factor_function}
+                           ]
         
     for j in range(len(materials)):
         bounds[j] = {'name': materials[j], 'type': 'continuous', 'domain': (0,1)}
@@ -450,6 +452,10 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
     # Will be needed in IRL BO.
     function = True
     
+    lengthscales = []
+    variances = []
+    max_gradients = []
+    
     for k in range(rounds):
             
         # The implementation is like this because it is compatible with IRL data fusion BO. 
@@ -461,18 +467,21 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
                 if k == 0:
                     current_data_fusion_data = data_fusion_data[k].copy()
                 else:
-                    current_data_fusion_data = pd.concat([current_data_fusion_data, data_fusion_data[k]])
+                    current_data_fusion_data = pd.concat([
+                        current_data_fusion_data, data_fusion_data[k]])
 
         
         if (k == 0) and (function == True):
-            # Random initialization 2D
+            # Initialization with the given grid points.
             grid_init = np.array(init_points)        
             compositions_input = [pd.DataFrame(grid_init, columns = materials)]
             degradation_input = []
             
         if (k > 0) and (function == True):
-            # The locations suggested after the previous BO round will be sampled in this round.
-            compositions_input.append(pd.DataFrame(x_next[k-1], columns = materials))
+            # The locations suggested after the previous BO round will be
+            # sampled in this round.
+            compositions_input.append(pd.DataFrame(x_next[k-1],
+                                                   columns = materials))
             
         df = compositions_input[k].copy()
         
@@ -500,7 +509,7 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
         # TO DO: clean up so that works for any #D
         if function == True:
             x = df.iloc[:,0:len(materials)].values
-            df['Merit'] = predict_points_noisy_c2a(stability_model, x, stability_model.model.Y)
+            df['Merit'] = predict_points_noisy_c2a(stability_model, x, stability_model.model.Y)#predict_points_noisy_c2a(stability_model, x, stability_model.model.Y)
             degradation_input.append(df)
             
         
@@ -546,6 +555,29 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
         #        tolerance_factor_bound = None)
         BO_batch_model[k].plot_acquisition() # Works only for max 2D.
         
+        gradients = []
+        grad_step_x = []
+        for l in range(len(materials)):
+            # Calculate gradient.
+            # TO DO: We probably have a way to dig out the gradient directly from the model, how?
+            # BO_batch[i].model.model.predictive_gradients(points)
+            grad_step_x.append((bounds[l]['domain'][1] - bounds[l]['domain'][0])/100)
+            
+            x1 = x_next[k].copy()
+            x1[:,l] = x1[:,l] - grad_step_x[l]
+            x2 = x_next[k]
+            y1 = BO_batch_model[k].model.predict(x1)[0]
+            y2 = BO_batch_model[k].model.predict(x2)[0]
+            gradients.append(((y2-y1)/(x2-x1))[:,l])
+        
+        grad_max = np.max(np.abs(gradients), axis = 0) # Maximum gradient element value to any direction of the search space for each point.
+        lengthscale_opt = BO_batch_model[k].model.model.kern.lengthscale[0]
+        variance_opt = BO_batch_model[k].model.model.kern.variance[0]
+        
+        max_gradients.append(grad_max)
+        lengthscales.append(lengthscale_opt)
+        variances.append(variance_opt)
+        
         # Estimate if data fusion should be requested for the next round
         # suggestions.
         if acq_fun_params[2] == 'model_none':
@@ -564,40 +596,63 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
             
         elif acq_fun_params[2] == 'model_necessary':
             
-            gradients = []
-            # Sample only if any of the input gradients is larger than
-            # kernel varience divided by its lengthscale.
-            grad_step_x = []
-            for l in range(len(materials)):
-                # Calculate gradient.
-                # TO DO: We probably have a way to dig out the gradient directly from the model, how?
-                # BO_batch[i].model.model.predictive_gradients(points)
-                grad_step_x.append((bounds[l]['domain'][1] - bounds[l]['domain'][0])/100)
-                
-                x1 = x_next[k].copy()
-                x1[:,l] = x1[:,l] - grad_step_x[l]
-                x2 = x_next[k]
-                y1 = BO_batch_model[k].model.predict(x1)[0]
-                y2 = BO_batch_model[k].model.predict(x2)[0]
-                gradients.append(((y2-y1)/(x2-x1))[:,l])
-            
-            grad_max = np.max(np.abs(gradients), axis = 0)
-            lengthscale_opt = BO_batch_model[k].model.model.kern.lengthscale[0]
-            variance_opt = BO_batch_model[k].model.model.kern.variance[0]
             #print(lengthscale_opt, variance_opt)
             
-               
-            # Sample data fusion source data either via ground truth model
-            # or by a request.
+            # Sample only if any of the input gradients is larger than
+            # kernel varience divided by its lengthscale.
+            gradient_limit = np.sqrt(variance_opt)/lengthscale_opt/2
             
+            #print(gradient_limit < grad_max, gradient_limit, grad_max, lengthscale_opt, variance_opt)
+            
+            # Sample data fusion source data either via ground truth model:
             if function is True:
                 
-                new_df_points_x = x_next[k][grad_max > np.sqrt(variance_opt/lengthscale_opt)]
-                new_df_points_y = data_fusion_gt_model.predict(new_df_points_x)[0]
-                # Then added to data_fusion_data.
-                data_fusion_data.append(pd.DataFrame(
-                    np.concatenate((new_df_points_x, new_df_points_y), axis = 1),
+                # Pick new points for which the surrogate model has a high
+                # gradient, no matter if there is an earlier data fusion point
+                # nearby.
+                new_df_points_x_g = x_next[k][grad_max > gradient_limit]
+                #print(new_df_points_x.shape, lengthscale_opt, variance_opt, gradient_limit, grad_max) 
+                
+                # Pick new points for which the surrogate model does not have
+                # a high gradient but they are located far away from the
+                # previously sampled points (in unknown region).
+                new_df_points_x_u = x_next[k][grad_max <= gradient_limit]
+                
+                # Drop the points that have an earlier data fusion point nearby.
+                # 'Nearby' is 5% of the domain length here.
+                limit = (bounds[0]['domain'][1] - bounds[0]['domain'][0])/100*10
+                index = 0
+                for l in range(len(new_df_points_x_g)): # Should be u finally!
+                    
+                    if current_data_fusion_data.shape[0] > 0:
+                    
+                        #if (np.sqrt(np.sum((current_data_fusion_data.iloc[:,0:len(materials)] -new_df_points_x[index])**2, axis=1)) < 0.05).shape[0] > 0:
+                        if np.any(np.sqrt(np.sum((current_data_fusion_data.iloc[:,0:len(materials)] -new_df_points_x_g[index])**2, axis=1)) < limit):
+                            new_df_points_x_g = np.delete(new_df_points_x_g, index, axis=0)
+                            #print('Deleted points based on exclusion.')
+                
+                # Combine the twp criteria.
+                new_df_points_x = new_df_points_x_g #np.append(new_df_points_x_g, new_df_points_x_u, axis = 0)
+                # Make predictions on the data fusion property.
+                if new_df_points_x.shape[0] > 0:
+                    
+                    #print(new_df_points_x.shape)
+                    new_df_points_y = data_fusion_gt_model.predict_noiseless(new_df_points_x)[0] # TO DO: Add noise!
+                    
+                    # Then add to data_fusion_data
+                    data_fusion_data.append(pd.DataFrame(
+                        np.concatenate((new_df_points_x, new_df_points_y),
+                                       axis = 1),
                     columns = materials + [data_fusion_variable]))
+                    
+                else:
+                    
+                    new_df_points_y = np.array([])
+                    data_fusion_data.append(pd.DataFrame(
+                    columns = materials + [data_fusion_variable]))
+                
+                print('Round ' + str(k) + ': ', new_df_points_x)
+                
                 
             else:
                 
@@ -612,7 +667,7 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
     
     
     if no_plots == False:
-        plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batch_model, materials, X_rounds, x_next, Y_step, X_step)    
+        plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batch_model, materials, X_rounds, x_next, Y_step, X_step, limit_file_number = True)    
     
     print('Last suggestions for the next sampling points: ', x_next[-1])
     print('Results are saved into folder ./Results.')
@@ -633,4 +688,4 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
             plt.show()
 
 
-    return optimum, rounds, suggestion_df, compositions_input, degradation_input, BO_batch_model, materials, X_rounds, x_next, Y_step, X_step, data_fusion_data
+    return optimum, rounds, suggestion_df, compositions_input, degradation_input, BO_batch_model, materials, X_rounds, x_next, Y_step, X_step, data_fusion_data, lengthscales, variances, max_gradients

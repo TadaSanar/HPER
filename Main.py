@@ -154,7 +154,7 @@ def plot_GP(GP_model, Y_train = None, x_points = None, y_points = None,
     
 
     # Let's plot the requested points. This plot works for 3 materials only.
-        
+       
     plot_surf_mean(points, posterior_mean, lims, axis_scale = axis_scale,
                    cbar_label = cbar_labels[0], saveas = filenames[0])
     plot_surf_std(points, posterior_std, lims, axis_scale = axis_scale,
@@ -218,7 +218,6 @@ def plot_P(GP_model, beta = 0.025, data_type = 'dft', midpoint = 0):
     return minP, maxP
 #########################################################################
 # INPUTS
-
 stability_exp_results_path = './Source_data/Backup-model-20190730172222' # This pickle file contains all the results from the C2a optimization.
 yellowness_model_path = './Source_data/Yellowness_GPR_model_20220801'
 
@@ -312,7 +311,7 @@ def GP_model(files, materials = ['CsPbI', 'MAPbI', 'FAPbI'], target_variable = '
     model = GPy.models.GPRegression(X,Y,kernel)
     
     # optimize and plot
-    model.optimize(messages=True,max_f_eval = 100)
+    model.optimize(messages=True,max_f_eval = 1000)
     
     
     return model
@@ -358,11 +357,12 @@ plot_P(DFT_model, beta = 0.025, data_type = 'dft')
 '''
 ###############################################################################
 
-'''
+
 # For doing the same with a model estimating the spatial uniformity of the sample films.
 
 visual_files = ['./visualquality/visualquality_round_0-1.csv']
 
+'''
 uniformity_model = GP_model(visual_files, materials = materials, target_variable = 'Uniformity', lengthscale = 0.1, variance = 0.1)
 
 plot_GP(uniformity_model, x_points = uniformity_model.X, y_points = uniformity_model.Y, 
@@ -380,14 +380,23 @@ print('Predicted uniformity values:\n', predicted_y_points, '\nAnd their st devs
 # Do the same as above for DFT and uniformity, to yellowness of the sample (est.
 # by a human).
 
-#yellowness_model = GP_model(visual_files, materials = materials, target_variable = 'Yellowness', lengthscale = 0.1, variance = 0.1)
-with open(yellowness_model_path,'rb') as f:
-    yellowness_model = pickle.load(f)
+lengthscales = [0.1]#[0.001, 0.01, 0.1, 1, 10]
+variances = [0.1]#[0.001, 0.01, 0.1, 1, 10]
 
-plot_GP(yellowness_model, x_points = yellowness_model.X, y_points = yellowness_model.Y, 
+for i in range(len(variances)):
+    for j in range(len(lengthscales)):
+        lengthscale = lengthscales[j]
+        variance = variances[i]
+        yellowness_model = GP_model(visual_files, materials = materials,
+                            target_variable = 'Quality', lengthscale = lengthscale, 
+                            variance = variance)
+        #with open(yellowness_model_path,'rb') as f:
+            #    yellowness_model = pickle.load(f)
+
+        plot_GP(yellowness_model, x_points = yellowness_model.X, y_points = yellowness_model.Y, 
              data_type = 'yellowness')
 
-minP, maxP = plot_P(yellowness_model, beta = 0.5, data_type = 'yellowness', midpoint = 1.5)
+minP, maxP = plot_P(yellowness_model, beta = 0.2, data_type = 'yellowness', midpoint = 0)
 print(minP, maxP)
 
 predicted_y_points, predicted_y_std_points = predict_and_plot_points(

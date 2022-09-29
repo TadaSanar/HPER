@@ -33,57 +33,54 @@ def ternary_rand_vector(n):
         
     return v
 
-for m in [2,3,4]:
+for m in [1]:#[0,1,2,3,4]:
 
-    n_repetitions = 1
-    n_rounds = 10
-    #beta = 0.5 # dft_beta = 0.025, visual_beta = 0.5, ei_dft_param_builder(acquisition_type = 'EI_DFT',
-    #    data_fusion_target_variable = 'dft', files = None, lengthscale = None,
-    #    variance = None, beta = None, midpoint = None,
-    #    data_fusion_input_variables = None)
-    
+    n_repetitions = 5
+    n_rounds = 40#100
     
     n_init = 2
-    batch_size = 2
+    batch_size = 1
     
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
     save_figs = True
     
-    if m == 0:
+    if m == 2:
         data_fusion_property = 'visual'
         data_fusion_method = 'model_all'
         acquisition_function = 'EI_DFT'
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = '202208071359'
         
-    if m == 1:
+    if m == 4:
         data_fusion_property = 'dft'
         data_fusion_method = 'model_all'
         acquisition_function = 'EI_DFT'
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = '202208071830'
         
-    if m == 2:
+    if m == 0:
         data_fusion_property = None
         acquisition_function = 'EI'
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = '202208072133'
     
-    if m == 3:
+    if m == 1:
         data_fusion_property = 'visual'
         data_fusion_method = 'model_necessary'
         acquisition_function = 'EI_DFT'
         # Which data to fetch (if you only fetch and do not calculate new)?
-        fetch_file_date = '202208080143'
+        fetch_file_date = '202209240248'#'202208080143'
         
-    if m == 4:
+    if m == 3:
         data_fusion_property = 'dft'
         data_fusion_method = 'model_necessary'
         acquisition_function = 'EI_DFT'
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = '202208080556'
+        
+    color = sn.color_palette()[m]
     
     materials = ['CsPbI', 'MAPbI', 'FAPbI']
     
@@ -107,7 +104,7 @@ for m in [2,3,4]:
     ground_truth = [0.17, 0.03, 0.80] # From C2a paper
     
     pickle_prefix = './Results/Results-'
-    pickle_variable_names = ['optima', 'X_steps', 'Y_steps', 'data_fusion_data', 'BOmainresults']
+    pickle_variable_names = ['optima', 'X_steps', 'Y_steps', 'data_fusion_data', 'BOmainresults', 'BO_lengthscales', 'BO_variances', 'BO_max_gradients']
     pickle_postfix = fetch_file_postfix
     
     # Set figure style.
@@ -124,7 +121,10 @@ for m in [2,3,4]:
         X_steps = []
         Y_steps = []
         data_fusion_data_all = []
-    
+        lengthscales_all = []
+        variances_all = []
+        max_gradients_all = []
+        
         for i in range(n_repetitions):
             
             
@@ -132,13 +132,13 @@ for m in [2,3,4]:
             
             print(i, materials, n_rounds, all_starting_points[i], batch_size, acquisition_function, acq_fun_params)
             
-            optimum, rounds, suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step, data_fusion_data = bo_sim_target(
+            optimum, rounds, suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step, data_fusion_data, lengthscales, variances, max_gradients = bo_sim_target(
                 bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222', 
                               materials = materials, rounds = n_rounds,
                               init_points = all_starting_points[i],
                               batch_size = batch_size,
                               acquisition_function = acquisition_function,
-                              acq_fun_params = acq_fun_params, no_plots = False)
+                              acq_fun_params = acq_fun_params, no_plots = True)
             
             #results.append([optimum, rounds, suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step])
             results.append([BO_batch, x_next])
@@ -150,14 +150,18 @@ for m in [2,3,4]:
             
             data_fusion_data_all.append(data_fusion_data)
             
+            lengthscales_all.append(lengthscales)
+            variances_all.append(variances)
+            max_gradients.append(max_gradients)
+            
             print('Repetition ', i)
         
         filename_prefix = pickle_prefix + '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
-        pickle_variables = [optima, X_steps, Y_steps, data_fusion_data_all, results]
+        pickle_variables = [optima, X_steps, Y_steps, data_fusion_data_all, results, lengthscales_all, variances_all, max_gradients_all]
         
         # Save the results as an backup
         for i in range(len(pickle_variable_names)):
-            print('Saving variable ', pickle_variable_names[i])
+            #print('Saving variable ', pickle_variable_names[i])
             filename = filename_prefix + '_' + pickle_variable_names[i] + pickle_postfix
             dbfile = open(filename, 'ab') 
             pickle.dump(pickle_variables[i], dbfile)                      
@@ -180,7 +184,9 @@ for m in [2,3,4]:
         Y_steps = pickle_variables[2]
         data_fusion_data_all = pickle_variables[3]
         results = pickle_variables[4]
-        
+        lengthscales_all = pickle_variables[5]
+        variances_all = pickle_variables[6]
+        max_gradients_all = pickle_variables[7]
         
     optima = np.array(optima)/60
     
@@ -198,8 +204,8 @@ for m in [2,3,4]:
     # Round on sama kuin sinun iter, esim 100
     # Repeat on se, kuinka monta kertaa BO-sykli toistetaan samoilla asetuksilla (statistiikka, std), esim 50
     plt.figure()
-    sn.lineplot(data = df_optima_long, x = 'Round', y = 'Optimum', ci = 90)
-    plt.ylim([0,450000/60])
+    sn.lineplot(data = df_optima_long, x = 'Round', y = 'Optimum', ci = 90, color = color)
+    plt.ylim([0,10000])
     plt.tight_layout()
     
     if save_figs:
@@ -235,7 +241,7 @@ for m in [2,3,4]:
     df_regrets_long = pd.wide_to_long(df_regrets_wide, stubnames = 'Regret', i = 'Repeat', j = 'Round')
     
     plt.figure()
-    sn.lineplot(data = df_regrets_long, x = 'Round', y = 'Regret', ci = 90)
+    sn.lineplot(data = df_regrets_long, x = 'Round', y = 'Regret', ci = 90, color = color)
     plt.ylim([0,1])
     plt.tight_layout()
     
@@ -273,7 +279,7 @@ for m in [2,3,4]:
         df_optima_long = pd.wide_to_long(df_optima_wide, stubnames = 'N_data_fusion_points', i = 'Repeat', j = 'Round')
         
         plt.figure()
-        sn.lineplot(data = df_optima_long, x = 'Round', y = 'N_data_fusion_points', ci = 90)
+        sn.lineplot(data = df_optima_long, x = 'Round', y = 'N_data_fusion_points', ci = 90, color = color)
         #plt.ylim([0,450000/60])
         plt.tight_layout()
         

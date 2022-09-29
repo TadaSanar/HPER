@@ -38,12 +38,12 @@ def ternary_rand_vector(n):
 
 for m in range(2):
 
-    n_repetitions = 3 #50
-    n_rounds = 50 #100
+    n_repetitions = 5 #50
+    n_rounds = 5 #100
     acquisition_function = 'EI_DFT'
     beta = 0.5 # dft_beta = 0.025, visual_beta = 0.5
     n_init = 2
-    batch_size = 2
+    batch_size = 10
     if m == 0:
         data_fusion_property = 'visual'
     if m == 1:
@@ -52,7 +52,7 @@ for m in range(2):
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = True
+    save_figs = False
     # Which data to fetch (if you only fetch and do not calculate new)?
     fetch_file_date = '202203290320'#'202203252333'
     

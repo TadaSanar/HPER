@@ -60,7 +60,7 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
     if surf_levels is None: # A solution that typically looks good for camera data.
     #    im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels)
     #else:
-        print(norm.vmin, norm.vmax)
+        #print(norm.vmin, norm.vmax)
         nlevels = 8
         minvalue = 0
         if norm.vmin < minvalue:
@@ -72,7 +72,7 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         surf_levels = np.unique(np.append(surf_levels, 2*surf_levels[-1] - surf_levels[-2]))
     if np.std(surf_levels) == 0: # The above automatic solution does not work for <1 values, resulting in constant surf levels. In these cases, it is best to fall back to automatic.
         surf_levels = np.arange(norm.vmin, norm.vmax, (norm.vmax-norm.vmin)/nlevels)
-    print(x.shape, y.shape, T.triangles.shape, v.shape, surf_levels)
+    #print(x.shape, y.shape, T.triangles.shape, v.shape, surf_levels)
     im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels)
     
     myformatter=matplotlib.ticker.ScalarFormatter()
@@ -192,15 +192,38 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     os.chdir(original_folder)
     
     ###############################################################################
+    # ALL PLOTS AND FILES
+    ###############################################################################
+    
+    if (limit_file_number == True) and (rounds > 5):
+        
+        # Limit the number of plotting files to 5/BO cycle/plot type.
+        # Additionally, only the most essential plots will be created.
+        
+        rounds_to_plot = [0, 1, 2, int(np.floor(rounds/2)), (rounds-1)]
+    
+    else:
+        
+        rounds_to_plot = range(rounds)
+    
+    
+    ###############################################################################
     # SAVE RESULTS TO CSV FILES
     ###############################################################################
-    for i in range(rounds):
-        suggestion_df[i].to_csv(results_dir + 'Bayesian_suggestion_round_'+str(i)+'{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
+    
+    for i in rounds_to_plot:
+
+        if (limit_file_number == False):        
+            suggestion_df[i].to_csv(results_dir + 'Bayesian_suggestion_round_'+str(i)+'{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
+
         inputs = compositions_input[i]
         inputs['Ic (px*min)'] = degradation_input[i]['Merit']
         inputs=inputs.sort_values('Ic (px*min)')
         inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
-        inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+'{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
+
+        if (limit_file_number == False):
+            inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+'{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
+        
         # : Here the posterior mean and std_dv+acquisition function are calculated and saved to csvs.
         posterior_mean[i],posterior_std[i] = BO_batch[i].model.predict(points) # MAKING THE PREDICTION
         # Scaling the normalized data back to the original units.
@@ -214,27 +237,12 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         inputs2['Ic (px*min)']=posterior_mean[i]
         inputs2['Std of Ic (px*min)']=posterior_std[i]
         inputs2['EIC']=acq_normalized[i]
-        inputs2.to_csv(results_dir + 'Model_round_' + str(i) + '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
-        
-    
-    
-    
-    ###############################################################################
-    # ALL PLOTS
-    ###############################################################################
-    
-    if limit_file_number == True:
-        
-        # Limit the number of plotting files to 5/BO cycle/plot type.
-        # Additionally, only the most essential plots will be created.
-        
-        if rounds > 5:
+
+        if (limit_file_number == False):
+            inputs2.to_csv(results_dir + 'Model_round_' + str(i) + '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
             
-            rounds_to_plot = [0, 1, 2, int(np.floor(rounds/2)), (rounds-1)]
     
-    else:
-        
-        rounds_to_plot = range(rounds)
+    
     
     ###############################################################################
     # PLOT MERIT
@@ -272,7 +280,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     newPal = {}#0:'k', 1:'k', 2:'k', 3:'k', 4: 'k'}#{0:'#8b0000', 1:'#7fcdbb', 2:'#9acd32', 3:'#ff4500', 4: 'k'} #A14
     for i in rounds_to_plot:
         newPal[i] = 'k'
-        print('Round: ', i) #A14
+        print('Plotting round ', i) #A14
         if i==0:
             # In the first round there is an even distribution.
             test_data = np.concatenate((points, acq_normalized[i]), axis=1)
@@ -291,7 +299,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
                      cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
     if limit_file_number == False:
         for i in rounds_to_plot:
-            print('Round: ', i) #A14
+            #print('Round: ', i) #A14
             if i==0:
                 # In the first round there is a even distribution.
                 test_data = np.concatenate((points, acq_normalized[i]), axis=1)

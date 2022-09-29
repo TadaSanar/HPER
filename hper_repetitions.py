@@ -34,7 +34,7 @@ def ternary_rand_vector(n):
         
     return v
 
-for m in [1,0,2,3,4]:
+for m in [1,0,2]:
 
     n_repetitions = 25
     n_rounds = 100

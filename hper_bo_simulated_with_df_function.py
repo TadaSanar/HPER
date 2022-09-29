@@ -631,13 +631,16 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
                             new_df_points_x_g = np.delete(new_df_points_x_g, index, axis=0)
                             #print('Deleted points based on exclusion.')
                 
-                # Combine the twp criteria.
+                # Combine the two criteria.
                 new_df_points_x = new_df_points_x_g #np.append(new_df_points_x_g, new_df_points_x_u, axis = 0)
                 # Make predictions on the data fusion property.
                 if new_df_points_x.shape[0] > 0:
                     
                     #print(new_df_points_x.shape)
                     new_df_points_y = data_fusion_gt_model.predict_noiseless(new_df_points_x)[0] # TO DO: Add noise!
+                    # Noise added here:
+                        # TO DO check that y predictions are scaled correctly.
+                    #new_df_points_y = predict_points_noisy_c2a(data_fusion_gt_model, new_df_points_x)
                     
                     # Then add to data_fusion_data
                     data_fusion_data.append(pd.DataFrame(

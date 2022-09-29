@@ -14,8 +14,9 @@ import seaborn as sn
 import pickle
 import datetime
 import matplotlib.pyplot as plt
+import os
 
-from set_figure_defaults import FigureDefaults # C Antti Vepsalainen
+from set_figure_defaults import FigureDefaults # Copyright Antti Vepsalainen
 
 def ternary_rand():
     x = np.random.rand()
@@ -33,10 +34,10 @@ def ternary_rand_vector(n):
         
     return v
 
-for m in [1]:#[0,1,2,3,4]:
+for m in [1,0,2,3,4]:
 
-    n_repetitions = 5
-    n_rounds = 40#100
+    n_repetitions = 25
+    n_rounds = 100
     
     n_init = 2
     batch_size = 1
@@ -103,7 +104,7 @@ for m in [1]:#[0,1,2,3,4]:
     
     ground_truth = [0.17, 0.03, 0.80] # From C2a paper
     
-    pickle_prefix = './Results/Results-'
+    pickle_prefix = './Results/' # Old version: './Results/Results-'
     pickle_variable_names = ['optima', 'X_steps', 'Y_steps', 'data_fusion_data', 'BOmainresults', 'BO_lengthscales', 'BO_variances', 'BO_max_gradients']
     pickle_postfix = fetch_file_postfix
     
@@ -132,13 +133,19 @@ for m in [1]:#[0,1,2,3,4]:
             
             print(i, materials, n_rounds, all_starting_points[i], batch_size, acquisition_function, acq_fun_params)
             
+            # Plot the BO for the first two iterations.
+            if i <2:
+                no_plots = False
+            else:
+                no_plots = True
+            
             optimum, rounds, suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step, data_fusion_data, lengthscales, variances, max_gradients = bo_sim_target(
                 bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222', 
                               materials = materials, rounds = n_rounds,
                               init_points = all_starting_points[i],
                               batch_size = batch_size,
                               acquisition_function = acquisition_function,
-                              acq_fun_params = acq_fun_params, no_plots = True)
+                              acq_fun_params = acq_fun_params, no_plots = no_plots)
             
             #results.append([optimum, rounds, suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step])
             results.append([BO_batch, x_next])
@@ -155,9 +162,15 @@ for m in [1]:#[0,1,2,3,4]:
             max_gradients.append(max_gradients)
             
             print('Repetition ', i)
+ 
+        time_now = '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
+        filename_prefix = pickle_prefix + time_now + '/'
+        if not os.path.exists(filename_prefix):
+            os.makedirs(filename_prefix)
+        filename_prefix = filename_prefix + time_now
         
-        filename_prefix = pickle_prefix + '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
-        pickle_variables = [optima, X_steps, Y_steps, data_fusion_data_all, results, lengthscales_all, variances_all, max_gradients_all]
+        pickle_variables = [optima, X_steps, Y_steps, data_fusion_data_all,
+                            results, lengthscales_all, variances_all, max_gradients_all]
         
         # Save the results as an backup
         for i in range(len(pickle_variable_names)):
@@ -169,7 +182,7 @@ for m in [1]:#[0,1,2,3,4]:
         
     else:
         
-        filename_prefix = pickle_prefix + fetch_file_date
+        filename_prefix = pickle_prefix + fetch_file_date + '/' + fetch_file_date
         pickle_variables = []
         
         # Fetch the results from pickled backup

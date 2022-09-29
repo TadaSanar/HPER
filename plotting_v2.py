@@ -14,11 +14,11 @@ import matplotlib as mpl
 import matplotlib.tri as tri
 import datetime
 
-script_dir = os.path.dirname(__file__)
-results_dir = os.path.join(script_dir, 'Results/')
-
-if not os.path.isdir(results_dir):
-    os.makedirs(results_dir)
+#script_dir = os.path.dirname(__file__)
+#results_dir = os.path.join(script_dir, 'Results/')
+#
+#if not os.path.isdir(results_dir):
+#    os.makedirs(results_dir)
 
 
 def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu_r',
@@ -117,9 +117,9 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
     
     
     if saveas:
-        fig.savefig(results_dir + saveas + '.pdf', transparent = True)
-        fig.savefig(results_dir + saveas + '.svg', transparent = True)
-        fig.savefig(results_dir + saveas + '.png', dpi=300)
+        fig.savefig(saveas + '.pdf', transparent = True)
+        #fig.savefig(saveas + '.svg', transparent = True)
+        #fig.savefig(saveas + '.png', dpi=300)
     plt.show()
     return fig, ax
 
@@ -188,8 +188,13 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     posterior_std = [None for k in range(rounds)]
     acq_normalized = [None for k in range(rounds)]
     
-    original_folder = os.getcwd()
-    os.chdir(original_folder)
+    #original_folder = os.getcwd()
+    #os.chdir(original_folder)
+    time_now = '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
+    
+    results_dir = './Results/Triangles/' + time_now + '/'
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
     
     ###############################################################################
     # ALL PLOTS AND FILES
@@ -200,21 +205,22 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         # Limit the number of plotting files to 5/BO cycle/plot type.
         # Additionally, only the most essential plots will be created.
         
-        rounds_to_plot = [0, 1, 2, int(np.floor(rounds/2)), (rounds-1)]
+        rounds_to_plot = [0, 2, int(np.floor(rounds/2)), (rounds-1)]
     
     else:
         
         rounds_to_plot = range(rounds)
     
-    
     ###############################################################################
     # SAVE RESULTS TO CSV FILES
     ###############################################################################
     
-    for i in rounds_to_plot:
+    # Save csvs only if limit_file_number is False.
+    for i in range(rounds):
 
+        
         if (limit_file_number == False):        
-            suggestion_df[i].to_csv(results_dir + 'Bayesian_suggestion_round_'+str(i)+'{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
+            suggestion_df[i].to_csv(results_dir + 'Bayesian_suggestion_round_'+str(i) + time_now + '.csv', float_format='%.3f')
 
         inputs = compositions_input[i]
         inputs['Ic (px*min)'] = degradation_input[i]['Merit']
@@ -222,7 +228,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
 
         if (limit_file_number == False):
-            inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+'{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
+            inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+ time_now + '.csv', float_format='%.3f')
         
         # : Here the posterior mean and std_dv+acquisition function are calculated and saved to csvs.
         posterior_mean[i],posterior_std[i] = BO_batch[i].model.predict(points) # MAKING THE PREDICTION
@@ -239,7 +245,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
         inputs2['EIC']=acq_normalized[i]
 
         if (limit_file_number == False):
-            inputs2.to_csv(results_dir + 'Model_round_' + str(i) + '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now()) + '.csv', float_format='%.3f')
+            inputs2.to_csv(results_dir + 'Model_round_' + str(i) + time_now + '.csv', float_format='%.3f')
             
     
     
@@ -254,23 +260,30 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     # Min and max values for each contour plot are determined and normalization
     # of the color range is calculated.
     axis_scale = 60 # Units from px*min to px*hour.
-    lims = [[np.min(posterior_mean)/axis_scale, np.max(posterior_mean)/axis_scale],
-            [np.min(posterior_std)/axis_scale, np.max(posterior_std)/axis_scale],
-            [np.min(acq_normalized), np.max(acq_normalized)]] # For mean, std, and acquisition.
+    lims_p = [np.min(posterior_mean)/axis_scale, np.max(posterior_mean)/axis_scale]
+    lims_s = [np.min(posterior_std)/axis_scale, np.max(posterior_std)/axis_scale]
+    lims_a = [np.min(acq_normalized), np.max(acq_normalized)]
+    
+    lims = [lims_p, lims_s, lims_a] # For mean, std, and acquisition.
     
     norm = matplotlib.colors.Normalize(vmin=lims[0][0], vmax=lims[0][1])    
-    if limit_file_number == False:
+    # Plot Ic without sampled points only if file number does not have to be limited.
+    if (limit_file_number == False):        
         for i in rounds_to_plot:
             triangleplot(points, posterior_mean[i]/axis_scale, norm, cmap = 'RdBu_r',
-                     cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = 'Modelled-Ic-no-grid-round'+str(i)+
-                     datetime.datetime.now().strftime("%Y%m%d%H%M%S")) #A14
+                     cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)',
+                     saveas = results_dir + 'Modelled-Ic-no-grid-round'+str(i) + 
+                     '-' + time_now) #A14
 
 
     norm = matplotlib.colors.Normalize(vmin=lims[1][0], vmax=lims[1][1])
-    for i in rounds_to_plot:
-        triangleplot(points, posterior_std[i]/axis_scale, norm, cmap = 'RdBu_r',
-                 cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)', saveas = 'St-Dev-of-modelled-Ic-round'+str(i)+
-                 datetime.datetime.now().strftime("%Y%m%d%H%M%S")) #A14
+    # Plot Std only if file number does not have to be limited.
+    if (limit_file_number == False):        
+        for i in rounds_to_plot:
+            triangleplot(points, posterior_std[i]/axis_scale, norm, cmap = 'RdBu_r',
+                 cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)',
+                 saveas = results_dir + 'St-Dev-of-modelled-Ic-round'+str(i) + 
+                 '-' + time_now) #A14
 
     norm = matplotlib.colors.Normalize(vmin=lims[2][0], vmax=lims[2][1])
     # Shift the colormap (removes the red background that appears with the std colormap)
@@ -291,13 +304,16 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
             test_data = test_data[test_data[:,3] != 0]
         triangleplot(test_data[:,0:3], test_data[:,3], norm,
                      surf_axis_scale = 1.0, cmap = 'shifted',
-                     cbar_label = r'$EIC(\theta, \beta_{DFT})$', #A14
-                     saveas = 'EIC-with-single-round-samples-round'+str(i)+datetime.datetime.now().strftime("%Y%m%d%H%M%S"), #A14
+                     cbar_label = r'$EIC(\theta, \beta_{DFT})$ in round ' + str(i), #A14
+                     saveas = results_dir + 'EIC-with-single-round-samples-round'+str(i) + 
+                     '-' + time_now, #A14
                      surf_levels = (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8,1),
                      scatter_points=X_rounds[i], scatter_color = newPal[i],
                      cbar_spacing = 'proportional',
                      cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
-    if limit_file_number == False:
+    
+    # Plot acquisition function without samples only if file number does not have to be limited.
+    if (limit_file_number == False):        
         for i in rounds_to_plot:
             #print('Round: ', i) #A14
             if i==0:
@@ -311,7 +327,8 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
             triangleplot(test_data[:,0:3], test_data[:,3], norm,
                          surf_axis_scale = 1.0, cmap = 'shifted',
                          cbar_label = r'$EIC(\theta, \beta_{DFT})$', #A14
-                         saveas = 'EIC-round'+str(i)+datetime.datetime.now().strftime("%Y%m%d%H%M%S"), #A14
+                         saveas = results_dir + 'EIC-round'+str(i) + 
+                         '-' + time_now, #A14
                          surf_levels = (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8,1),
                          cbar_spacing = 'proportional',
                          cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
@@ -321,8 +338,9 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input, BO_batc
     for i in rounds_to_plot:
         triangleplot(points, posterior_mean[i]/axis_scale, norm,
                      cmap = 'RdBu_r',
-                     cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', #A14
-                     saveas = 'Modelled-Ic-with-samples-round'+str(i)+datetime.datetime.now().strftime("%Y%m%d%H%M%S"), #A14
+                     cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h) in round ' + str(i), #A14
+                     saveas = results_dir + 'Modelled-Ic-with-samples-round'+str(i) + 
+                     '-' + time_now, #A14
                      scatter_points=X_step[i],
                      scatter_color = np.ravel(Y_step[i]/axis_scale),
                      cbar_spacing = None, cbar_ticks = None)

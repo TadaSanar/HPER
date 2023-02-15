@@ -63,12 +63,8 @@ Run HPER/hper_repetitions.py
 ||                    |
 | ------------- | ------------------------------ |
 | **AUTHORS**      | Armi Tiihonen | 
-| **VERSION**      | derived from https://github.com/PV-Lab/SPProC and https://github.com/PV-Lab/GPyOpt_DFT / November, 2021     | 
-| **EMAILS**      | armi.tiihonen@gmail.com  | 
-||                    |
-
-## Attribution
-This work is under MIT License. Please, acknowledge use of this work with the appropiate citation to the repository and research article.
+| **VERSION**      | 0.1 / November, 2021 /  derived from https://github.com/PV-Lab/SPProC and https://github.com/PV-Lab/GPyOpt_DFT |
+| 0.2 / November, 2022 /  The latest version, presented at AL4Mat workshop in Neurips 2022 conference |
 
 ## Citation
 

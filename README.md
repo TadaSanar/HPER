@@ -16,6 +16,8 @@ This repository is fitted only for running simulations and needs modifications f
 
 This is work in progress - please follow the updates in the repository (or drop an email) for more information.
 
+Branch 'feat-eig' is under development and is instable. Branch 'main' is stable.
+
 ## Description of human in the loop approach
 
 Data fusion approach presented in Github repository SPProC has been further generalized here. The implementation can take in arbitrary data fusion data as csv files. If new data fusion data arrives within each BO round, their corresponding csv files are fed in in a vector format.

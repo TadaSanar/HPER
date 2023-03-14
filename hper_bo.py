@@ -313,6 +313,20 @@ def df_data_coll_method_param2descr(df_data_coll_params):
      
     return output_str
 
+def build_constraint_str(materials, composition_total, prefix = 'x[:,', 
+                         postfix = ']'):
+    
+    c1 = ''
+    c0 = str(composition_total[0])
+
+    for idx in range(len(materials)):
+        c1 = c1 + prefix + str(idx) + postfix + ' + '
+        c0 = c0 + ' - ' + prefix + str(idx) + postfix
+
+    c1 = c1[0:-2] + '- ' + str(composition_total[1])
+    
+    return c0, c1
+
 def load_ground_truth(path_model):
     
     # Load already existing stability data as the "ground truth" of stability.
@@ -327,11 +341,326 @@ def load_ground_truth(path_model):
     
     return target_model
 
+def query_data_fusion_XZ_this_round(data_fusion_XZ_rounds, data_fusion_x_next, 
+                                    df_data_coll_params, acq_fun_params, k,
+                                    data_fusion_gt_model, noise = False):
+
+    if df_data_coll_params['use_model'] == False:
+        
+        # Data would have already been added if there would have 
+        # been any. Fill in an empty DataFrame.
+        data_fusion_XZ_rounds[k] = pd.DataFrame(
+            columns = acq_fun_params['df_input_var'] + 
+            [acq_fun_params['df_target_var']])
+    else:
+        
+        # Data fusion data must be generated using the ground truth
+        # model.
+        
+        if k == 0:
+            
+            # Initialize to empty.
+            data_fusion_XZ_rounds[k] = pd.DataFrame(
+                    columns = acq_fun_params['df_input_var'] + 
+                    [acq_fun_params['df_target_var']])
+            
+        else:
+            
+            # There may be point(s) suggested in the previous round 
+            # that need to be evaluated.
+            
+            if data_fusion_x_next[k-1].empty is False:
+                
+                # Note: There's no need to add train data to this GP model
+                # because it has not been trained with scaled Y data (unlike
+                # the C2a model).
+                
+                # Predict.
+                if noise == False:
+                    
+                    data_fusion_z_next = predict_points(
+                        data_fusion_gt_model, data_fusion_x_next[k-1].values)[0]
+                else:
+                    
+                    data_fusion_z_next = predict_points_noisy(
+                        data_fusion_gt_model, data_fusion_x_next[k-1].values)[0]
+                
+                # Add to the list.
+                data_fusion_XZ_rounds[k] = pd.DataFrame(
+                    np.concatenate((data_fusion_x_next[k-1].values, 
+                                    data_fusion_z_next), axis = 1), 
+                    columns = acq_fun_params['df_input_var'] +
+                       [acq_fun_params['df_target_var']])
+            else:
+                
+                data_fusion_XZ_rounds[k] = pd.DataFrame(
+                        columns = acq_fun_params['df_input_var'] + 
+                        [acq_fun_params['df_target_var']])
+                
+    return data_fusion_XZ_rounds
+
+def fill_accum_df_with_this_round(accum_df, rounds_df, k):
+    
+    if k == 0:
+        
+        accum_df[k] = rounds_df[k].copy()
+        
+    else:
+        
+        accum_df[k] = pd.concat([accum_df[k-1], rounds_df[k]], 
+                                ignore_index = True)
+        
+    return accum_df
+
+def fill_accum_ar_with_this_round(accum_ar, rounds_df, k):
+    
+    if k == 0:
+        
+        accum_ar[k] = rounds_df[k].values.copy()
+        
+    else:
+        
+        accum_ar[k] = np.append(accum_ar[k-1], rounds_df[k].values, axis=0)
+        
+    return accum_ar
+
+def query_target_data_from_model(k, X_rounds, Y_rounds, X_accum, Y_accum, 
+                               init_points, x_next, stability_model, rounds,
+                               materials, noise = True):
+    
+    if (k == 0):
+        
+        # Initialization with the given grid points.
+        #grid_init = np.array(init_points)        
+        X_rounds[k] = pd.DataFrame(init_points, columns = materials)
+        
+        #compositions_input = [pd.DataFrame(grid_init, columns = materials)]
+        #degradation_input = []
+            
+    else:
+        
+        # The locations suggested after the previous BO round will be
+        # sampled in this round.
+        X_rounds[k] = pd.DataFrame(x_next[k-1], columns = materials)
+        
+        #compositions_input.append(pd.DataFrame(x_next[k-1], columns = materials))
+                
+        #df = compositions_input[k].copy()
+    
+    # Function predictions. Each round, the BO model is trained from zero.
+    # This is not computationally efficient, though. Should we modify at
+    # some point? Or do we want to keep the BO model for each round intact?
+    # TO DO: clean up so that works for any #D
+    
+    
+    #x = df.iloc[:,0:len(materials)].values
+    
+    if noise == True:
+        
+        preds = predict_points_noisy(stability_model, X_rounds[k].values, 
+                                     stability_model.Y)[0]
+    
+    else:
+        
+        preds = predict_points(stability_model, X_rounds[k].values, 
+                               stability_model.Y)[0]
+    
+    Y_rounds[k] = pd.DataFrame(preds, columns = ['Target value'])#np.reshape(preds, (preds.shape[0], 1))
+    
+    #Y_rounds[k] = np.reshape(predict_points_noisy(stability_model, x, stability_model.Y)[0], 
+    #                         (predict_points_noisy(stability_model, x, stability_model.Y)[0].shape[0], 1))
+    
+    #df['Merit'] = predict_points_noisy(stability_model, x, stability_model.Y)[0]
+    #degradation_input.append(df)
+    
+    # X is a vector of compositions, Y is a vector of merit values.
+    #X_rounds[k] = df[materials].values
+    # Reshaping is done to go from (n,) to (n,1), which is required by GPyOpt.
+    #Y_rounds[k] = np.reshape(df['Merit'].values, (df['Merit'].values.shape[0], 1))
+    
+    
+    Y_accum = fill_accum_ar_with_this_round(Y_accum, Y_rounds, k)
+    X_accum = fill_accum_ar_with_this_round(X_accum, X_rounds, k)
+    
+    # For each BayesianOpt round, we include only the data that has been
+    # collected by that time.
+    
+    #for j in range(rounds):
+    #    
+    #    if j >= k:
+    #        
+    #        if k == 0:
+    #            
+    #            X_accum[j] = X_rounds[k].values
+    #            Y_accum[j] = Y_rounds[k].values
+    #            
+    #        else:
+    #            
+    #            X_accum[j] = np.append(X_accum[j], X_rounds[k].values, axis=0)
+    #            Y_accum[j] = np.append(Y_accum[j], Y_rounds[k].values, axis=0)
+            
+    return X_rounds, Y_rounds, X_accum, Y_accum
+
+def determine_data_fusion_points(data_fusion_XZ_accum, 
+                df_data_coll_params, acq_fun_params, x_next, 
+                current_surrogate_model_params, materials, bounds, k):
+    
+    # The locations from which the data fusion data for _the next round_ will
+    # be queried are determined here.
+
+    if df_data_coll_params['method'] == 'none':
+        
+        # 'model_none' or 'live_none'
+        
+        # Never sample from the model or query human, just add an empty df for
+        # records.
+        result = pd.DataFrame(columns = acq_fun_params['df_input_var'])
+        
+    elif df_data_coll_params['method'] == 'all':
+        
+        # Always sample human.
+        result = pd.DataFrame(x_next[k], 
+                              columns = acq_fun_params['df_input_var'])
+                                                           
+        if df_data_coll_params['use_model'] == False:
+            
+            # Request humans to give feedback from the specified samples.
+            print('Give feedback on sample quality of these samples:\n', 
+                  result)
+            
+    elif ((df_data_coll_params['method'] == 'exclz') or 
+          (df_data_coll_params['method'] == 'eig')):
+        
+        # Gradient criterion.
+        
+        # Constant for the gradient limit.
+        c_grad = df_data_coll_params['c_grad']
+        
+        # Parameters of the current surrogate model for the optimization target.
+        lengthscale_s = current_surrogate_model_params['lengthscale']
+        variance_s = current_surrogate_model_params['variance']
+        
+        # Sample only if the suggested point has a larger gradient than this
+        # limit.
+        gradient_limit = np.sqrt(variance_s)/lengthscale_s*c_grad
+        
+        # Max. gradients of the next suggested points in the surrogate model.
+        grad_max_s_next = current_surrogate_model_params['max_gradient']
+        
+        # Pick new points for which the surrogate model has a high gradient, no 
+        # matter if there is an earlier data fusion point nearby.
+        new_df_points_x_g = x_next[k][grad_max_s_next > gradient_limit]
+        
+        # THIS OPTION IS NOT IN USE.
+        # Pick new points for which the surrogate model does not have
+        # a high gradient but they are located far away from the
+        # previously sampled points (in unknown region).
+        new_df_points_x_u = x_next[k][grad_max_s_next <= gradient_limit]
+        
+        # Drop the points that are excluded from the points to be queried
+        # because there are previous human evaluations nearby.
+        if df_data_coll_params['method'] == 'exclz':
+            
+            # If there are points to be considered based on exclusion zone.
+            if new_df_points_x_g.shape[0] > 0:
+            
+                # Drop points with an earlier data fusion point nearby.
+                # 'Nearby' is X% of the domain length here.
+                c_exclz = df_data_coll_params['c_exclz']
+                r_limit = (bounds[0]['domain'][1] - bounds[0]['domain'][0])*c_exclz/100
+                
+                index = 0
+                for l in range(len(new_df_points_x_g)): # Should be u finally!
+                    
+                    if data_fusion_XZ_accum[k].shape[0] > 0:
+                        
+                        if np.any(np.sqrt(np.sum((
+                                data_fusion_XZ_accum[k].iloc[:,0:len(materials)] - 
+                                new_df_points_x_g[index])**2, axis=1)) < 
+                                r_limit):
+                            
+                            new_df_points_x_g = np.delete(new_df_points_x_g, 
+                                                          index, axis=0)
+                            # TO DO: Test if index works correctly when batch BO is used!
+                            print('Deleted a point based on r exclusion.')
+                            
+                        else:
+                            
+                            index = index + 1
+     
+        elif df_data_coll_params['method'] == 'eig':
+            
+            # If the data fusion model exists already.
+            if data_fusion_XZ_accum[k].shape[0] > 0:
+            
+                # Drop points based on expected information gain for the human
+                # opinion model.
+                
+                # Let's re-create the human opinion model for EIG test.
+                current_df_model = GP_model(data_fusion_XZ_accum[k],
+                                            acq_fun_params['df_target_var'],
+                                            acq_fun_params['gp_lengthscale'],
+                                            acq_fun_params['gp_variance'],
+                                            acq_fun_params['df_input_var'])
+                #data_fusion_models[j] = current_df_model
+                
+                if new_df_points_x_g.shape[0] > 0:
+                    
+                    # Variance on each point x (pred. from the data fusion 
+                    # model).
+                    var_d_next = predict_points(current_df_model, new_df_points_x_g)[1]
+                    
+                    # Data fusion model y variance estimate.
+                    vary_d = current_df_model.Gaussian_noise.variance[0]
+                    
+                    index = 0
+                    for l in range(len(new_df_points_x_g)): # Should be u finally!
+                        
+                        eig = 0.5 * (np.log10(var_d_next[l,0]/vary_d + 1))
+                        c_eig = df_data_coll_params['c_eig']
+                        
+                        # Max EIG(sigma_x=sigma). Let's scale EIG scale factor
+                        # based on that (i.e., c_eig = 1 samples very little,
+                        # c_eig = 0 does not limit at all).
+                        eig_max = 0.5 * np.log10(2)
+                        
+                        if eig < (eig_max * c_eig):
+                            
+                            new_df_points_x_g = np.delete(new_df_points_x_g, index, axis=0)
+                            print('Deleted a point based on EIG.')
+                            
+                        else:
+                            
+                            index = index + 1
+                        
+        # NOT IN USE AT THE MOMENT.
+        # Combine the two criteria.
+        new_df_points_x = new_df_points_x_g # np.append(new_df_points_x_g, new_df_points_x_u, axis = 0)
+                
+        if new_df_points_x.shape[0] > 0:
+                    
+            result = pd.DataFrame(new_df_points_x, 
+                                          columns = acq_fun_params['df_input_var'])
+            
+            print('Round ' + str(k) + ': ', result)
+            
+            if df_data_coll_params['use_model'] == False:
+                        
+                # Request humans to give feedback from the specified samples.
+                print('Give feedback on sample quality of these samples:\n', 
+                      result)
+        else:
+                
+            # Add empty DataFrame
+            result = pd.DataFrame(columns = acq_fun_params['df_input_var'])
+                    
+    return result
 
 def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222', 
                   materials = ['CsPbI', 'MAPbI', 'FAPbI'], rounds = 10,
-                  init_points = None, batch_size = 1, acquisition_function = 'EI',
-                  acq_fun_params = None, df_data_coll_params = None, no_plots = False,
+                  init_points = None, batch_size = 1, 
+                  acquisition_function = 'EI', acq_fun_params = None, 
+                  df_data_coll_params = None, no_plots = False,
                   results_folder = './Results/'):
 
     '''
@@ -361,8 +690,29 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
     the samples/when the algo defines it necessary).
     '''
     
+    ###########################################################################
+    # HARD-CODED SETTINGS (CONSIDER TURNING INTO FUNCTION PARAMS)
     
-    stability_model = load_ground_truth(bo_ground_truth_model_path)
+    composition_total = [0.995, 1] # The sum of the amount of each material will be
+    # limited between these values. If you need everything to sum up to 100% within
+    # 1%-units accuracy, choose [0.995, 1] (default value). If the code runs too
+    # long with this value, choose [0.99,1] or even wider range.
+    
+    # Input parameter values are within this range (all the dimensions).
+    domain_boundaries = [0,1]
+    
+    # These variables are related to the Bayesian optimization.
+    num_cores = 1 # Not a parallel run
+    jitter = 0.01 # The level of exploration.
+    
+    simulated_bo = True # No real experiments but data is queried online from a function.
+    
+    ###########################################################################
+    # SET DATA FUSION PARAMETERS
+    
+    if simulated_bo == True:
+        
+        stability_model = load_ground_truth(bo_ground_truth_model_path)
     
     if df_data_coll_params is not None:
         
@@ -381,415 +731,253 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
                                             acq_fun_params['gp_variance'],
                                             acq_fun_params['df_input_var'])
             
-            # Then data_fusion_data is cleared. New data will be sampled only
-            # when the BO algo requires it.
-            acq_fun_params['df_data'] = [pd.DataFrame(columns = acq_fun_params['df_input_var'] + [acq_fun_params['df_target_var']])]
+            # Then data_fusion_data is cleared now that it has been used for
+            # fitting the model. New data will be sampled only when the BO algo
+            # requires it.
+            acq_fun_params['df_data'] = [pd.DataFrame(columns = 
+                                                      acq_fun_params['df_input_var'] + 
+                                                      [acq_fun_params['df_target_var']
+                                                       ])]
                         
-            print("Data fusion model created.")
+            #print("Data fusion model created.")
         
         if acq_fun_params['df_data'] is None:
             
             # Initialize to empty.
-            acq_fun_params['df_data'] = [pd.DataFrame(columns = acq_fun_params['df_input_var'] + [acq_fun_params['df_target_var']])]
-            
-   ###############################################################################
+            acq_fun_params['df_data'] = [pd.DataFrame(columns = 
+                                                      acq_fun_params['df_input_var'] + 
+                                                      [acq_fun_params['df_target_var']
+                                                       ])]
+        
+        # Else, the data fusion data is already in acq_fun_params['df_data'] in
+        # the required format (list of DataFrames for each round).
+        
+    ###########################################################################
+    # INITIALIZE VARIABLES.
     
-    # Collect the data and compute the figure of merit.
+    # Material composition needs to sum up to 1 within the accuracy defined in
+    # 'composition_total'.
+    c0, c1 = build_constraint_str(materials, composition_total)
     
-    constraints = [None for j in range(rounds)]
-    
-    # Define the variables and the domain for each
-    # One can define here also material- or round-specific parameters.
-    bounds = [None for j in range(len(materials))]
-    
-    # Data collected during that round:
-    X_rounds = [None for j in range(rounds)]
-    Y_rounds = [None for j in range(rounds)]
-    # All the data collected by that round:
-    X_step = [np.empty((0,len(materials))) for j in range(rounds)]
-    Y_step = [np.empty((0,1)) for j in range(rounds)] # Change (0,1) to (0,2) if multiobjective
-    
-    
-    x_next = [None for j in range(rounds)] # Suggestions for the next locations to be sampled.
-    suggestion_df = [None for j in range(rounds)] # Same in nice dataframes.
-    
-    BO_batch_model = [None for j in range(rounds)] # Batch BO objects for each BO round (with data acquired by that time).
-    
-    composition_total = [0.995, 1] # The sum of the amount of each material will be
-    # limited between these values. If you need everything to sum up to 100% within
-    # 1%-units accuracy, choose [0.995, 1] (default value). If the code runs too
-    # long with this value, choose [0.99,1] or even wider range.
-    
-    
+    # Search constraints.
+    constraints = []
     for k in range(rounds):
         
-        # TO DO: Generalize to more than three materials or shift up to the user defined part.
-        constraints[k] = [{'name': 'constr_1', 'constraint': 'x[:,0] +x[:,1] + x[:,2] - ' + str(composition_total[1])},
-                           {'name': 'constr_2', 'constraint': str(composition_total[0])+'-x[:,0] -x[:,1] - x[:,2] '}
-                           ]
+        constraints.append([{'name': 'constr_1', 'constraint': c0},
+                          {'name': 'constr_2', 'constraint': c1}])
         
+    # Boundaries of the search domain.
+    bounds = []
     for j in range(len(materials)):
-        bounds[j] = {'name': materials[j], 'type': 'continuous', 'domain': (0,1)}
+        bounds.append({'name': materials[j], 'type': 'continuous', 
+                       'domain': domain_boundaries})
     
-    # These variables are related to the Bayesian optimization.
-    num_cores = 1 # Not a parallel run
-    jitter = 0.01 # The level of exploration.
-    
-
-    ###############################################################################
-    #%%
-    # BEGIN BAYESIAN OPTIMIZATION
-    
-    # Will be needed in IRL BO.
+    # A dummy parameter at the moment; will be needed in IRL BO to determine
+    # if target variable values are being read from a function or from a table
+    # provided by the user.
     function = True
     
-    lengthscales = []
-    variances = []
-    max_gradients = []
+    ###
+    # Variables related to the optimization target variable:
+    
+    # Requests for the next locations to be sampled.
+    x_next = [None for j in range(rounds)]
+    # Same in nice dataframes.
+    x_next_df = [None for j in range(rounds)]
+    
+    # Data actually collected during the round in question (in DataFrames);
+    # could in experiments be different than the ones actually requested at the
+    # end of the previous round.
+    X_rounds = [None for j in range(rounds)]
+    Y_rounds = [None for j in range(rounds)]
+    # All the data actully collected by that round (in numpy arrays for GPyOpt):
+    X_accum = [None for j in range(rounds)]
+    Y_accum = [None for j in range(rounds)]
+    # BO objects for each BO round (fitted using data acquired by the round in
+    # question).
+    BO_objects = [None for j in range(rounds)]
+    
+    if simulated_bo == False:
+        
+        # The actually collected optimization target points from the previous
+        # rounds exist already and can be filled in to the variables.
+        raise Exception('Not implemented!')
+    
+    lengthscales = [np.nan for j in range(rounds)]
+    variances = [np.nan for j in range(rounds)]
+    max_gradients = [np.nan for j in range(rounds)]
+    
+    ###
+    # Variables related to data fusion.
     
     if df_data_coll_params is not None:
         
-        data_fusion_models = [None for j in range(rounds)]
-        data_fusion_data_step = [None for j in range(rounds)]
+        # Requests for the next locations to be queried (in DataFrames).
+        data_fusion_x_next = [None for j in range(rounds)]
         
+        # Data actually collected during the round in question (in DataFrames);
+        # could in experiments be different than the ones actually requested at the
+        # end of the previous round. These are 
+        data_fusion_XZ_rounds = [None for j in range(rounds)]
+        # All the data actully collected by that round (in DataFrames):
+        data_fusion_XZ_accum = [None for j in range(rounds)]
+        # GP models for each BO round (fitted using data acquired by the round
+        # in question).
+        data_fusion_models = [None for j in range(rounds)]
+        
+        if df_data_coll_params['use_model'] == False:
+            
+            # The actually collected data fusion points from the previous
+            # exist already and can be filled in to the variables.
+            
+            for j in range(len(acq_fun_params['df_data'])):
+                
+                data_fusion_XZ_rounds[j] = acq_fun_params['df_data'][j].copy()
+                
+                # Note that acq_fun_param[df_data] will be wiped multiple times
+                # during the BO loop. Data is not lost because it has already been
+                # saved into data_fusion_XZ_rounds.
+                
+                # Now, the first round has at minimum been initialized to empty
+                # DataFrames. There may still be 'None' slots in 
+                # data_fusion_XZ_rounds. The will be removed in the BO loop.
+            
+    ###############################################################################
+    # BEGIN BAYESIAN OPTIMIZATION
         
     for k in range(rounds):
         
         if df_data_coll_params is not None:
             
-            if k == 0: 
+            # Do data fusion.
+            if data_fusion_XZ_rounds[k] is None:
                 
-                data_fusion_data_rounds = acq_fun_params['df_data'].copy()
-                data_fusion_data_step[k] = data_fusion_data_rounds[k]
-                
-            else:
-                
-                if len(data_fusion_data_rounds) > k:
-                    
-                    data_fusion_data_step[k] = pd.concat([
-                                    data_fusion_data_step[k-1], data_fusion_data_rounds[k]],
-                                    ignore_index = True)
-                    
-                else:
-                    
-                    data_fusion_data_step[k] = data_fusion_data_step[k-1]
-                
-            acq_fun_params['df_data'] = data_fusion_data_step[k]
+                # The data fusion data needs to be filled in. Works for
+                # simulated and experimental data.
+                data_fusion_XZ_rounds = query_data_fusion_XZ_this_round(
+                    data_fusion_XZ_rounds, data_fusion_x_next, 
+                    df_data_coll_params, acq_fun_params, k, 
+                    data_fusion_gt_model, noise = False)
+                # TO DO: Add noise to the simulated prediction! Confirm proper 
+                # scaling in GP once more. Divide the function so that 
+                # experimental treatment is fully before BO loop  and simulated
+                # here (so that one does not have to feed in gt_model with
+                # experimental data).
+                        
+            # Fill in the accumulating variable (works as long as there are no
+            # None's in the round-wise variable which should be the case).
+            data_fusion_XZ_accum = fill_accum_df_with_this_round(
+                data_fusion_XZ_accum, data_fusion_XZ_rounds, k)
             
-        ## The implementation is like this because it is compatible with IRL data fusion BO. 
-        #if acquisition_function == 'EI_DFT':
-        #
-        #    # Collect the data fusion data observed by this round (cumulatively).
-        #    if len(data_fusion_data_rounds) > k:
-        #    
-        #        if k == 0:
-        #            data_fusion_data_step[k] = data_fusion_data_rounds[k].copy()
-        #        else:
-        #            data_fusion_data_step[k] = pd.concat([
-        #                data_fusion_data_step[k], data_fusion_data_rounds[k]],
-        #                ignore_index = True)
-        
-        if (k == 0) and (function == True):
+            # Save the data fusion data for this round to the params that will 
+            # be sent to the BO.
+            acq_fun_params['df_data'] = data_fusion_XZ_accum[k]
             
-            # Initialization with the given grid points.
-            grid_init = np.array(init_points)        
-            compositions_input = [pd.DataFrame(grid_init, columns = materials)]
-            degradation_input = []
+            # TO DO: The experimental version of data fusion has not been
+            # tested.
+                        
+        if (function == True):
             
-        if (k > 0) and (function == True):
-            # The locations suggested after the previous BO round will be
-            # sampled in this round.
-            compositions_input.append(pd.DataFrame(x_next[k-1],
-                                                   columns = materials))
-            
-        df = compositions_input[k].copy()
-        
-        
-        # Function predictions. Each round, the BO model is trained from zero.
-        # This is not computationally efficient, though. Should we modify at
-        # some point? Or do we want to keep the BO model for each round intact?
-        # TO DO: clean up so that works for any #D
-        if function == True:
-            x = df.iloc[:,0:len(materials)].values
-            df['Merit'] = predict_points_noisy(stability_model, x,
-                                               stability_model.Y)[0]
-            degradation_input.append(df)
-            
-        
-        # X is a vector of compositions, Y is a vector of merit values.
-        X_rounds[k] = df[materials].values
-        # Reshaping is done to go from (n,) to (n,1), which is required by GPyOpt.
-        Y_rounds[k] = np.reshape(df['Merit'].values, (df['Merit'].values.shape[0], 1))
-        
-        # For each BayesianOpt round, we include only the data that has been
-        # collected by that time.
-        for j in range(rounds):
-            if j >= k:
-                X_step[j] = np.append(X_step[j], X_rounds[k], axis=0)
-                Y_step[j] = np.append(Y_step[j], Y_rounds[k], axis=0)
-        
-        # Do the Bayesian Optimization.
+            # Query target variable values from the provided ground truth model
+            # and update X_rounds, Y_rounds, X_accum, Y_accum in place.
+            X_rounds, Y_rounds, X_accum, Y_accum = query_target_data_from_model(
+                k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next, 
+                stability_model, rounds, materials, noise = True)
+
         #print('X_step and Y_step for round ' + str(k) + ':', X_step[k], Y_step[k])
-        #Define Bayesian Opt object
-        #Instantiate BO object, f=None as we are using tabular data (to ), no analytical function
-        BO_batch_model[k] = GPyOpt.methods.BayesianOptimization(f=None,#f_booth,  
+        
+        # Define and fit BO object.
+        # f=None because this code will be adapted in future for experimental
+        # BO cycle.
+        BO_objects[k] = GPyOpt.methods.BayesianOptimization(f=None,
                                                 domain = bounds,
                                                 constraints = constraints[k],
-                                                acquisition_type = acquisition_function, #  'EI_DFT' or 'EI'
+                                                acquisition_type = acquisition_function,
                                                 normalize_Y = True,
-                                                X = X_step[k],
-                                                Y = Y_step[k],
+                                                X = X_accum[k],
+                                                Y = Y_accum[k],
                                                 evaluator_type = 'local_penalization',
                                                 batch_size = batch_size,
                                                 acquisition_jitter = jitter,
                                                 acq_fun_params = acq_fun_params
                                                 )    
-        #Suggest next points (samples to prepare).
-        x_next[k] = BO_batch_model[k].suggest_next_locations()
-        suggestion_df[k] = pd.DataFrame(x_next[k], columns = materials)
         
-        # Will be used for data fusion (if gradient option is enabled) and
-        # returned to the user.
+        # Suggest next points (samples to prepare).
+        x_next[k] = BO_objects[k].suggest_next_locations()
+        # Same as a list of DataFrames for the convenience of the user.
+        x_next_df[k] = pd.DataFrame(x_next[k], columns = materials)
         
-        lengthscale_opt = BO_batch_model[k].model.model.kern.lengthscale[0]
-        variance_opt = BO_batch_model[k].model.model.kern.variance[0]
+        # Fetch surrogate model parameters to be forwarded for the user and, if
+        # data fusion is enabled, used in evaluating if data fusion data should
+        # be queried.
+        lengthscales[k] = BO_objects[k].model.model.kern.lengthscale[0]
+        variances[k] = BO_objects[k].model.model.kern.variance[0]
+        gradients = BO_objects[k].model.model.predictive_gradients(x_next[k])[0][:,:,0]
         
-        gradients = BO_batch_model[k].model.model.predictive_gradients(x_next[k])[0][:,:,0]
-        # Maximum gradient element value to any direction of the search space for each point.
-        grad_max = np.max(np.abs(gradients), axis = 1) 
+        # Maximum gradient element value to any direction of the search space
+        # for each x_next point.
+        max_gradients[k] = np.max(np.abs(gradients), axis = 1)
         
-        lengthscales.append(lengthscale_opt)
-        variances.append(variance_opt)
-        max_gradients.append(grad_max)
+        current_surrogate_model_params = {'lengthscale': lengthscales[k],
+                                  'variance': variances[k],
+                                  'max_gradient': max_gradients[k]}
         
-        if (df_data_coll_params is not None) and (len(data_fusion_data_rounds) < (k+2)):
+        if df_data_coll_params is not None:
             
-            # Do data fusion. There are no existing df datapoints given by the
-            # user for the next round, so suggest new ones.
+            # Do data fusion.
             
-            # Estimate if data fusion should be requested for the next round
-            # suggestions.
-            
-            if df_data_coll_params['method'] == 'none':
-                
-                # 'model_none' or 'live_none'
-                
-                # Never sample from the model, just add an empty df for records.
-                data_fusion_data_rounds.append(pd.DataFrame(columns = 
-                                                            acq_fun_params['df_input_var'] + 
-                                                            [acq_fun_params['df_target_var']]))
-                
-            
-            elif df_data_coll_params['method'] == 'all':
-                #acq_fun_params[2].find('_all') != -1:
-                
-                # Sample human always.
-                
-                if df_data_coll_params['use_model']:
-                    
-                    # Sample all the data points from the df model.
-                    data_fusion_data_rounds.append(pd.DataFrame(np.concatenate((x_next[k],
-                                            predict_points(data_fusion_gt_model,
-                                            x_next[k])[0]), axis=1),
-                        columns = acq_fun_params['df_input_var'] +
-                        [acq_fun_params['df_target_var']])) # TO DO add noise
-                    
-                else: 
-                    #acq_fun_params[2].find('model') == -1: # 'live_all'
-                
-                    # Request humans to give feedback from the specified samples.
-                    print('Give feedback on sample quality of these samples:\n', 
-                          x_next[k])
-            
-            elif ((df_data_coll_params['method'] == 'exclz') or 
-                  (df_data_coll_params['method'] == 'eig')):
-                #acq_fun_params[2].find('_necessary') != -1:
-                
-                # Sample only if any of the input gradients is larger than
-                # kernel varience divided by its lengthscale.
-                c_grad = df_data_coll_params['c_grad']
-                gradient_limit = np.sqrt(variance_opt)/lengthscale_opt*c_grad
-                
-                #if grad_max > gradient_limit:
-                #    print('Point passed the gradient limit!')
-                #    #print(gradient_limit < grad_max, gradient_limit, grad_max, lengthscale_opt, variance_opt)
-                
-                # Pick new points for which the surrogate model has a high
-                # gradient, no matter if there is an earlier data fusion point
-                # nearby.
-                new_df_points_x_g = x_next[k][grad_max > gradient_limit]
-                #print(new_df_points_x.shape, lengthscale_opt, variance_opt, gradient_limit, grad_max) 
-                
-                # THIS OPTION IS NOT IN USE.
-                # Pick new points for which the surrogate model does not have
-                # a high gradient but they are located far away from the
-                # previously sampled points (in unknown region).
-                new_df_points_x_u = x_next[k][grad_max <= gradient_limit]
-                    
-                # Drop the points that are excluded based on existing human evals.
-                if df_data_coll_params['method'] == 'exclz':
-                    #(acq_fun_params[2].find('_exclz') != -1): #'_necessary_exclz'
-                        
-                    # If there are points to be considered based on exclusion zone.
-                    if new_df_points_x_g.shape[0] > 0:
-                        
-                        # Drop points with an earlier data fusion point nearby.
-                        # 'Nearby' is X% of the domain length here.
-                        c_exclz = df_data_coll_params['c_exclz']
-                        r_limit = (bounds[0]['domain'][1] - bounds[0]['domain'][0])*c_exclz/100
-                        
-                        index = 0
-                        for l in range(len(new_df_points_x_g)): # Should be u finally!
-                            
-                            if data_fusion_data_step[k].shape[0] > 0:
-                            
-                                if np.any(np.sqrt(np.sum((
-                                        data_fusion_data_step[k].iloc[:,0:len(materials)]
-                                        - new_df_points_x_g[index])**2, axis=1))
-                                        < r_limit):
-                                    new_df_points_x_g = np.delete(new_df_points_x_g, index, axis=0) # TO DO: Test if index works correctly when batch BO is used!
-                                    print('Deleted a point based on r exclusion.')
-                                    
-                                else:
-                                    index = index + 1
-     
-                elif df_data_coll_params['method'] == 'eig':
-                    #acq_fun_params[2].find('_eig') != -1: # 'necessary_eig'
-                    
-                    # If the data fusion model exists already.
-                    if data_fusion_data_step[k].shape[0] > 0:
-                        
-                        # Drop points based on expected information gain for the human
-                        # opinion model.
-                        
-                        # Let's re-create the human opinion model for EIG test.
-                        current_df_model = GP_model(data_fusion_data_step[k],
-                                                acq_fun_params['df_target_var'],
-                                                acq_fun_params['gp_lengthscale'],
-                                                acq_fun_params['gp_variance'],
-                                                acq_fun_params['df_input_var'])
-                        data_fusion_models[j] = current_df_model
-
-                        if new_df_points_x_g.shape[0] > 0:
-
-                            # Variance on each point x.
-                            new_var_x = predict_points(current_df_model, new_df_points_x_g)[1]
-                        
-                            # Model variance.
-                            current_var = current_df_model.Gaussian_noise.variance[0]
-                            index = 0
-                        
-                            for l in range(len(new_df_points_x_g)): # Should be u finally!
-                                
-                                # EIG test:
-                                #eig = 0.1 * (np.log10(new_sigma_x[0][l] + current_df_model.rbf.variance[0]) - np.log10(current_df_model.rbf.variance[0]))
-                                #lim was 0.005
-                                eig = 0.5 * (np.log10(new_var_x[l,0]/current_var + 1))
-                                #print('EIG=', eig, ', point:', new_df_points_x_g, ', sigma^2_x=', new_var_x, ', sigma^2=', current_var)
-                                
-                                c_eig = df_data_coll_params['c_eig']
-                                
-                                # Max EIG(sigma_x=sigma) = 0.5*np.log10(2) = 0.15. Should this be some kind of reasonable limit?
-                                if eig < 0.15*c_eig:
-                                    
-                                    new_df_points_x_g = np.delete(new_df_points_x_g, index, axis=0)
-                                    print('Deleted a point based on EIG.')
-                                    
-                                else:
-                                    
-                                    index = index + 1
-                        
-                # NOT IN USE AT THE MOMENT.
-                # Combine the two criteria.
-                new_df_points_x = new_df_points_x_g # np.append(new_df_points_x_g, new_df_points_x_u, axis = 0)
-                
-                #new_df_points_x = new_df_points_x_g
-                
-                if new_df_points_x.shape[0] > 0:
-                    
-                    if df_data_coll_params['use_model']:
-                        #acq_fun_params[2].find('_model') != -1:
-                        
-                       # Make predictions on the data fusion property.
-                       
-                       #print(new_df_points_x.shape)
-                       new_df_points_y = predict_points(data_fusion_gt_model, new_df_points_x)[0] # TO DO: Add noise!
-                       # TO DO check that y predictions are scaled correctly.
-                       
-                       # Then add to data_fusion_data
-                       data_fusion_data_rounds.append(pd.DataFrame(np.concatenate((new_df_points_x, new_df_points_y),
-                                      axis = 1),
-                           columns = acq_fun_params['df_input_var'] +
-                           [acq_fun_params['df_target_var']])) # TO DO add noise
-                    
-                    else:
-                        
-                        # Request humans to give feedback from the specified samples.
-                        print('Give feedback on sample quality of these samples:\n', new_df_points_x)
-                        
-                    print('Round ' + str(k) + ': ', new_df_points_x)
-                    
-                else:
-                    
-                    # Add empty DataFrame
-                    data_fusion_data_rounds.append(pd.DataFrame(
-                        columns = acq_fun_params['df_input_var'] +
-                        [acq_fun_params['df_target_var']]))
-                    
-    # Plot and save the results.
+            # Estimate if data fusion should be requested for (some of) the 
+            # suggestions for the next round.
+            data_fusion_x_next[k] = determine_data_fusion_points(
+                data_fusion_XZ_accum, df_data_coll_params, acq_fun_params, 
+                x_next, current_surrogate_model_params, materials, bounds, k)
+        
+    ###########################################################################
+    # DATA TREATMENT, PLOTTING, SAVING
     
-    #if function == True:
-    #    degradation_input = compositions_input
-    
-    
-    if no_plots == False:
-        time_now = '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
-        plotBO(rounds, suggestion_df, compositions_input, degradation_input,
-               BO_batch_model, materials, X_rounds, x_next, Y_step, X_step,
-               limit_file_number = True, time_str = time_now,
-               results_folder = results_folder)    
-        
-        if acquisition_function == 'EI_DFT':
-            plotDF(rounds, materials, data_fusion_models, data_fusion_data_rounds, acq_fun_params['df_target_var'], 
-                   acq_fun_params['gp_lengthscale'],
-                   acq_fun_params['gp_variance'],
-                   acq_fun_params['p_beta'], acq_fun_params['p_midpoint'],
-                   limit_file_number = True, time_str = time_now,
-                   results_folder = results_folder)
-            
     print('Last suggestions for the next sampling points: ', x_next[-1])
     print('Results are saved into the given folder.')
     
     # Save the model as an backup
     # dbfile = open('Backup-model-{date:%Y%m%d%H%M%S}'.format(date=datetime.datetime.now()), 'ab') 
-    # pickle.dump([BO_batch, suggestion_df, x_next, X_rounds, Y_rounds], dbfile)                      
+    # pickle.dump([BO_batch, x_next_df, x_next, X_rounds, Y_rounds], dbfile)                      
     # dbfile.close()
     
-    # Minimum value vs rounds.
-    optimum = np.empty((rounds, len(materials) + 1))
-    mod_optimum = np.empty((rounds, len(materials) + 1))
+    # Minimum value vs rounds (from the samples).
+    optimum = np.full((rounds, len(materials) + 1), np.nan)
+    ## Minimum value vs rounds (from the model).
+    #mod_optimum = np.full((rounds, len(materials) + 1), np.nan)
+    
     for i in range(rounds):
         
-        idx = np.argmin(Y_step[i], axis = 0)
-        opt = Y_step[i][idx, 0] #np.min(Y_step[i]))
-        loc = X_step[i][idx, :]
+        idx = np.argmin(Y_accum[i], axis = 0)
+        opt = Y_accum[i][idx, 0]
+        loc = X_accum[i][idx, :]
         
         optimum[i,0:len(materials)] = loc
         optimum[i,-1] = opt
         
-        #mod_opt = BO_batch_model[i].model.get_fmin()
-        #mod_opt, _ = BO_batch_model[i].model.predict(mod_loc)
-        
-        #mod_optimum[i,0:len(materials)] = mod_loc
-        #mod_optimum[i,-1] = mod_opt
-        
-        X_rounds[i] = pd.DataFrame(data = X_rounds[i], columns = materials)
-        Y_rounds[i] = pd.DataFrame(data = Y_rounds[i], columns = ['Target'])
-
     if no_plots == False:
-            plt.figure()
-            plt.plot(range(rounds), optimum)
-            plt.show()
+        
+        time_now = '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
+        
+        plotBO(rounds, x_next_df, BO_objects, materials, X_rounds, Y_rounds, 
+               Y_accum, X_accum, x_next, limit_file_number = True, 
+               time_str = time_now, results_folder = results_folder)    
+        
+        if acquisition_function == 'EI_DFT':
+            
+            plotDF(rounds, materials, data_fusion_models, 
+                   data_fusion_XZ_rounds, acq_fun_params['df_target_var'], 
+                   acq_fun_params['gp_lengthscale'],
+                   acq_fun_params['gp_variance'],
+                   acq_fun_params['p_beta'], acq_fun_params['p_midpoint'],
+                   limit_file_number = True, time_str = time_now,
+                   results_folder = results_folder)
+        
+        plt.figure()
+        plt.plot(range(rounds), optimum)
+        plt.show()
 
     surrogate_model_params = {'lengthscales': lengthscales,
                               'variances': variances,
@@ -797,21 +985,21 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
     
     if df_data_coll_params is not None:
         
-        data_fusion_params = {'df_data_rounds': data_fusion_data_rounds,
-                              'df_data_step': data_fusion_data_step}
+        data_fusion_params = {'df_data_rounds': data_fusion_XZ_rounds,
+                              'df_data_accum': data_fusion_XZ_accum}
         
     else:
         
         data_fusion_params = None
-
-    next_suggestions = suggestion_df.copy()
-    optimum = optimum.copy()
-    mod_optimum = mod_optimum.copy()
     
+    # Not sure if these are needed anymore. I used to have some memory issues
+    # that seemed to have gotten fixed by adding these, did not debug at the 
+    # time.
+    next_suggestions = x_next_df.copy()
+    optimum = optimum.copy()
+    mod_optimum = None#mod_optimum.copy()
     X_rounds = X_rounds.copy()
     Y_rounds = Y_rounds.copy()
+    BO_objects = BO_objects.copy()
     
-    bo_objects = BO_batch_model.copy()
-    
-    return next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_step, Y_step, surrogate_model_params, data_fusion_params, bo_objects
-#optimum, suggestion_df, compositions_input, degradation_input, BO_batch_model, X_rounds, x_next, Y_step, X_step, data_fusion_data, lengthscales, variances, max_gradients
+    return next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects

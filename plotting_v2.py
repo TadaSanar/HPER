@@ -47,7 +47,51 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
     fig.set_figwidth(5/2.54)
     plt.subplots_adjust(left=0.05, right=0.85, bottom=0.14, top=0.91)
 
-    if scatter_points is not None:
+    if surf_levels is None:
+        
+        # Default value
+        nlevels = 26
+        
+        minvalue = norm.vmin-(np.abs(norm.vmin)/1000)
+        maxvalue = norm.vmax# + (np.abs(norm.vmax)/1000)
+        
+        # If 0 is less than 2 steps away from the lower end of the colorbar 
+        # range, default the colorbar lower end to 0 (because it looks more tidy).
+        step = (maxvalue - minvalue) / nlevels
+        if (minvalue > 0) and (minvalue < (2 * step)):
+        
+            minvalue = 0
+            step = (maxvalue - minvalue) / nlevels
+        
+        print('norm', norm.vmin, norm.vmax, 'extrema', minvalue, maxvalue,
+              'step', step)
+        
+        surf_levels = np.arange(minvalue, maxvalue + step, step)
+        
+        # Every 5th surf level will have a tick mark so they need to be fixed
+        # to a two digit value.
+        tick_idx = np.arange(1,nlevels+1,5)
+        if (norm.vmax >= 0): # Full range above zero.
+            
+            if np.log10(step) > -2:
+                n_sign_digits = 2 # Works for almost all the values because there is exp scale in the colorbar.
+            else: # Very small values, need more accuracy in surf level stepping.
+                n_sign_digits = np.abs(np.floor(np.log10(step)))
+            surf_levels[tick_idx] = np.round(surf_levels[tick_idx], 
+                                                  -int(np.floor(np.log10(norm.vmax))-n_sign_digits))
+            surf_levels[tick_idx[-1]] = np.round(surf_levels[tick_idx[-1]], 
+                                                  -int(np.ceil(np.log10(norm.vmax))-n_sign_digits))
+            
+        else:
+            surf_levels[tick_idx[0:-1]] = np.round(surf_levels[tick_idx[0:-1]], 1)
+        
+        print('surflevels', surf_levels)    
+    
+    # plot the contour
+    im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels, norm = norm)
+    
+    if (scatter_points is not None):
+        
         #Triangulation for the points suggested by BO.
         b_p = scatter_points[:,0]
         c_p = scatter_points[:,1]
@@ -55,42 +99,16 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         x_p = 0.5 * ( 2.*b_p+c_p ) / ( a_p+b_p+c_p)
         y_p = 0.5*np.sqrt(3) * c_p / (a_p+b_p+c_p)
         
-        im3 = ax.scatter(x_p, y_p, s=8, c=scatter_color, cmap=cmap, edgecolors='black', linewidths=.5, alpha=1, zorder=2, norm=norm)
-    # plot the contour
-    if surf_levels is None:
-        
-        nlevels = 40
-        minvalue = 0
-        
-        if norm.vmin < minvalue:
-            minvalue = norm.vmin-(np.abs(norm.vmin)/100)
-            
-        if norm.vmin > (minvalue + ((norm.vmax-minvalue)/nlevels)):
-            minvalue = norm.vmin-(np.abs(norm.vmin)/100)
-            
-        surf_levels = np.arange(minvalue, norm.vmax+(np.abs(norm.vmax)/100), (norm.vmax-minvalue)/nlevels)
-        if norm.vmax != 0:
-            surf_levels = np.round(surf_levels, -int(np.floor(np.log10(norm.vmax))-1))#2))
-            
-        else:
-            surf_levels = np.round(surf_levels, 1)
-            
-        surf_levels = np.unique(np.append(surf_levels, 2*surf_levels[-1] - surf_levels[-2]))
-        
-        if surf_levels[0] > minvalue:
-            surf_levels = np.insert(surf_levels, 0, surf_levels[0] - (surf_levels[1] - surf_levels[0]))
-    
-    if np.std(surf_levels) == 0: # The above automatic solution does not work for <1 values, resulting in constant surf levels. In these cases, it is best to fall back to automatic.
-        surf_levels = np.arange(norm.vmin, norm.vmax, (norm.vmax-norm.vmin)/nlevels)
-        
-    im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels)
+        im3 = ax.scatter(x_p, y_p, s=8, c=scatter_color, cmap=cmap,
+                         edgecolors='black', linewidths=.5, alpha=1, zorder=2,
+                         norm=norm)
     
     myformatter=matplotlib.ticker.ScalarFormatter()
     myformatter.set_powerlimits((0,2))
     if cbar_spacing is not None:
         cbar=plt.colorbar(im, ax=ax, spacing=cbar_spacing, ticks=cbar_ticks)
     else:
-        cbar=plt.colorbar(im, ax=ax, format=myformatter, spacing=surf_levels, ticks=surf_levels[1::4])
+        cbar=plt.colorbar(im, ax=ax, format=myformatter, spacing=surf_levels, ticks=surf_levels[tick_idx])
     cbar.ax.tick_params(labelsize=8)
     cbar.set_label(cbar_label, fontsize=8)#, labelpad = -0.5)
     plt.axis('off')
@@ -276,15 +294,18 @@ def save_round_to_csv_files(mean, std, acq, rounds, materials, points,
     for i in range(rounds):
 
         if (limit_file_number == False) and (next_suggestions is not None):        
-            next_suggestions[i].to_csv(results_dir + 'Bayesian_suggestion_round_'+str(i) + time_now + '.csv', float_format='%.3f')
+            next_suggestions[i].to_csv(results_dir + 
+                                       'Bayesian_suggestion_round_'+str(i) + 
+                                       time_now + '.csv', float_format='%.3f')
 
-        inputs = x_data[i]
-        inputs[mean_name] = y_data[i]['Merit']
+        inputs = x_data[i].copy()
+        inputs[mean_name] = y_data[i].values
         inputs=inputs.sort_values(mean_name)
         inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
 
         if (limit_file_number == False):
-            inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+ time_now + '.csv', float_format='%.3f')
+            inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+ 
+                          time_now + '.csv', float_format='%.3f')
         
         inputs2 = pd.DataFrame(points, columns=materials)
         inputs2[mean_name]=mean[i]
@@ -292,7 +313,8 @@ def save_round_to_csv_files(mean, std, acq, rounds, materials, points,
         inputs2[acq_name]=acq[i]
 
         if (limit_file_number == False):
-            inputs2.to_csv(results_dir + 'Model_round_' + str(i) + time_now + '.csv', float_format='%.3f')
+            inputs2.to_csv(results_dir + 'Model_round_' + str(i) + 
+                           time_now + '.csv', float_format='%.3f')
 
 def define_norm_for_surf_plot(target, color_lims = None):
     
@@ -379,7 +401,7 @@ def init_acq_plot(points, acq, cmap_base):
     plot_params = {
         'surf_axis_scale': 1.0,
         'cmap_name': cmap_name,
-        'surf_levels': (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1),
+        'surf_levels': (0,0.009,0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1),
         'cbar_spacing': 'proportional',
         'cbar_ticks': (0,0.2,0.4,0.6,0.8,1)
         }
@@ -387,7 +409,7 @@ def init_acq_plot(points, acq, cmap_base):
     return points_to_plot, acq_to_plot, plot_params
     
 def plot_acq_only(points, acq, color_lims = None, cmap_base = 'RdBu',
-                   cbar_label = r'Acq(\theta)', saveas = None):
+                   cbar_label = r'$Acq(\theta)$', saveas = None):
     
     # Acq. colorbar label in C2a:
     # r'$EIC (\theta, \beta_{DFT})$'
@@ -413,7 +435,7 @@ def plot_acq_only(points, acq, color_lims = None, cmap_base = 'RdBu',
                  cbar_ticks = plot_params['cbar_ticks'])
     
 def plot_acq_and_data(points, acq, data, color_lims = None, cmap_base = 'RdBu',
-                   cbar_label = r'Acq(\theta)', saveas = None):
+                   cbar_label = r'$Acq(\theta)$', saveas = None):
     
     
     # Acq.fun. plot looks weird unless zeros are removed and colormap shifted. 
@@ -451,14 +473,17 @@ def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = '
     
     norm = define_norm_for_surf_plot(mean, color_lims = color_lims)
     
-    triangleplot(points, mean, norm, cmap = cmap,
-                 cbar_label = cbar_label, saveas = saveas,
+    triangleplot(points, mean, norm, 
+                 cmap = cmap,
+                 cbar_label = cbar_label, 
+                 saveas = saveas,
                  scatter_points = data_x, scatter_color = np.ravel(data_y),
                  cbar_spacing = None, cbar_ticks = None)
 
-def plotBO(rounds, suggestion_df, compositions_input, degradation_input,
-           BO_batch, materials, X_rounds, x_next, Y_step, X_step,
+def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
+           BO_objects, materials, X_rounds, Y_rounds, Y_accum, X_accum, x_next,
            limit_file_number = True, time_str = None, results_folder = './Results/'):
+    
     
     # Create a ternary grid 'points', the necessary folder structure, and 
     # file name templates. Initialize the posterior mean and st.dev., and
@@ -471,9 +496,9 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input,
                                                                        posterior_std, 
                                                                        acq_normalized, 
                                                                        rounds, 
-                                                                       BO_batch, 
+                                                                       BO_objects, 
                                                                        points, 
-                                                                       y_train_data = Y_step)
+                                                                       y_train_data = Y_accum)
     
     ###############################################################################
     # SAVE RESULTS TO CSV FILES
@@ -483,8 +508,8 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input,
     save_round_to_csv_files(posterior_mean, posterior_std, acq_normalized,
                             rounds, materials, points,
                                 limit_file_number, results_dir, time_now,
-                                x_data = compositions_input,
-                                y_data = degradation_input,
+                                x_data = X_rounds, #compositions_input,
+                                y_data = Y_rounds, #degradation_input,
                                 next_suggestions = suggestion_df)
             
     ###############################################################################
@@ -511,7 +536,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input,
             # Note i-1, this is because acq is saved at the end of each round
             # and here we plot acq at the beginning of each round.
         
-        plot_acq_and_data(points, acq_to_plot, X_rounds[i], color_lims = lims_a,
+        plot_acq_and_data(points, acq_to_plot, X_rounds[i].values, color_lims = lims_a,
                           cbar_label = r'$Acq(\theta)$ in round ' + str(i),
                           saveas = results_dir +
                           'Acq-with-single-round-samples-round'+str(i) + 
@@ -519,7 +544,7 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input,
         
         # Plot posterior mean with samples acquired by the end of the round.
         plot_mean_and_data(points, posterior_mean[i]/axis_scale,
-                           X_step[i], Y_step[i]/axis_scale,
+                           X_accum[i], Y_accum[i]/axis_scale,
                            color_lims = lims_p,
                            cbar_label =
                            r'$I_{c}(\theta)$ (px$\cdot$h) in round ' + str(i),
@@ -527,6 +552,10 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input,
                            'Modelled-Ic-with-samples-round' + str(i) + 
                            '-' + time_now)
         
+        plot_std_only(points, posterior_std[i]/axis_scale,
+                      color_lims = lims_s,
+                      saveas = results_dir + 'St-Dev-of-modelled-Ic-round' +
+                      str(i) + '-' + time_now)
         
         if (limit_file_number == False):        
             
@@ -535,13 +564,9 @@ def plotBO(rounds, suggestion_df, compositions_input, degradation_input,
                            saveas = results_dir + 'Modelled-Ic-no-grid-round' +
                            str(i) + '-' + time_now)
             
-            plot_std_only(points, posterior_std[i]/axis_scale,
-                          color_lims = lims_s,
-                          saveas = results_dir + 'St-Dev-of-modelled-Ic-round' +
-                          str(i) + '-' + time_now)
-            
             plot_acq_only(points, acq_to_plot,
                                       color_lims = lims_a,
+                                      cbar_label = r'$Acq(\theta)$ in round ' + str(i),
                                       saveas = results_dir + 'Acq-round'+str(i) + 
                                      '-' + time_now)
             

@@ -14,6 +14,7 @@ import seaborn as sn
 import pandas as pd
 import numpy as np
 from hper_bo import bo_sim_target, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
+from scipy.special import erf, erfinv
 
 #%load_ext autoreload
 #%autoreload 2
@@ -53,6 +54,18 @@ def ternary_rand_vector(n):
 
     return v
 
+def p_above(c_g, std = 1):
+    
+    p = 1 - erf(c_g/(std * np.sqrt(2)))
+    
+    return p
+
+def c_g(p_above, std = 1):
+    
+    c_g = np.sqrt(2) * std * erfinv(1-p_above)
+    
+    return c_g
+
 def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_file_date = None):
 
     if fetch_file_date is None:
@@ -81,7 +94,7 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_
                           '_batch' + str(bo_params['batch_size']) +
                           '_acq' + acq_fun_descr + df_data_coll_descr)
 
-    pickle_variable_names = ['optima', 'X_steps', 'Y_steps', 'data_fusion_data',
+    pickle_variable_names = ['optima', 'X_accum', 'Y_accum', 'data_fusion_data',
                              'BOmainresults', 'BO_lengthscales', 'BO_variances', 'BO_max_gradients']
     
     pickle_filenames = []
@@ -99,9 +112,9 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_
 if __name__ == "__main__":
     ###############################################################################
     
-    c_eig = [] # Option not used in AI4Mat version of the project.
-    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = [0.5] # Gradient limit.
+    c_eig = [0.05, 0.1, 0.25, 0.5, 0.75, 1] # Expected information gain.
+    c_exclz = [5, 10, 20, 30, 40] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = list(c_g(np.array([0.05, 0.2, 0.5, 0.8, 0.95]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -114,13 +127,13 @@ if __name__ == "__main__":
     
             hyperparams_eig.append((c_g[i], c_eig[k]))
     
-    folder = './Results/20230214_AI4Mat_settings/'
+    folder = './Results/20230307/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 30,
-                 'n_rounds': 100,
-                 'n_init': 2,
-                 'batch_size': 1,
+    bo_params = {'n_repetitions': 5,
+                 'n_rounds': 4,
+                 'n_init': 5,
+                 'batch_size': 5,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
                  }        
     
@@ -132,11 +145,19 @@ if __name__ == "__main__":
     ###############################################################################
     
     # Viikon
-    for m in [0,1,2]:
+    for m in range(2 + len(hyperparams_eig) + len(hyperparams_exclz)):
     
         if (m > -1):
     
-            if m == 1:
+            if m == 0:
+    
+                data_fusion_property = None
+                acquisition_function = 'EI'
+                # Which data to fetch (if you only fetch and do not calculate new)?
+                fetch_file_date = None
+                color = sn.color_palette()[m]
+                
+            elif m == 1:
     
                 data_fusion_property = 'visual'
                 df_data_coll_method = 'model_all'
@@ -145,39 +166,29 @@ if __name__ == "__main__":
                 fetch_file_date = None
                 color = sn.color_palette()[m]
     
-            elif m == 0:
-    
-                data_fusion_property = None
-                acquisition_function = 'EI'
+            elif (m < len(hyperparams_eig)+2):
+                
+                data_fusion_property = 'visual'
+                df_data_coll_method = 'model_necessary_eig'
+                c_grad = hyperparams_eig[m-2][0]
+                c_e = hyperparams_eig[m-2][1]
+                acquisition_function = 'EI_DFT'
+                color = sn.color_palette()[2]
                 # Which data to fetch (if you only fetch and do not calculate new)?
-                fetch_file_date = None
-                color = sn.color_palette()[m]
-    
-                # The following option is not used in the AI4Mat submission.            
-                # =============================================================================
-                #         elif (m < len(hyperparams_eig)+2):
-                # 
-                #             data_fusion_property = 'visual'
-                #             df_data_coll_method = 'model_necessary_eig'
-                #             c_grad = hyperparams_eig[m-2][0]
-                #             c_e = hyperparams_eig[m-2][1]
-                #             acquisition_function = 'EI_DFT'
-                #             color = sn.color_palette()[2]
-                #             # Which data to fetch (if you only fetch and do not calculate new)?
-                #             fetch_file_date = ''
-                #             color = np.array(sn.color_palette()[c_eig.index(c_e)+2])*(
-                #                 1 + c_g.index(c_grad) / len(c_g))
-                #             for i in range(len(color)):
-                #                 if color[i] > 1:
-                #                     color[i] = 1
+                fetch_file_date = ''
+                color = np.array(sn.color_palette()[c_eig.index(c_e)+2])*(
+                    1 + c_g.index(c_grad) / len(c_g))
+                for i in range(len(color)):
+                    if color[i] > 1:
+                        color[i] = 1
                 # =============================================================================
             
             else:
     
                 data_fusion_property = 'visual'
                 df_data_coll_method = 'model_necessary_exclz'
-                c_grad = hyperparams_exclz[m-2][0]
-                c_e = hyperparams_exclz[m-2][1]
+                c_grad = hyperparams_exclz[m-2-len(hyperparams_eig)][0]
+                c_e = hyperparams_exclz[m-2-len(hyperparams_eig)][1]
                 acquisition_function = 'EI_DFT'
                 # Which data to fetch (if you only fetch and do not calculate new)?
                 fetch_file_date = None
@@ -223,8 +234,8 @@ if __name__ == "__main__":
             all_starting_points = []
             results = []
             optima = []
-            X_steps = []
-            Y_steps = []
+            X_accum = []
+            Y_accum = []
             data_fusion_data_all = []
             lengthscales_all = []
             variances_all = []
@@ -263,7 +274,7 @@ if __name__ == "__main__":
                         
                         ddcp = df_data_coll_params.copy()
     
-                    next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_step, Y_step, surrogate_model_params, data_fusion_params, bo_models = bo_sim_target(
+                    next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models = bo_sim_target(
                         bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222',
                         materials = bo_params['materials'], 
                         rounds=bo_params['n_rounds'],
@@ -279,8 +290,8 @@ if __name__ == "__main__":
                     
                     optima.append(optimum[:,-1])
     
-                    X_steps.append(X_step)
-                    Y_steps.append(Y_step)
+                    X_accum.append(X_accum)
+                    Y_accum.append(Y_accum)
     
                     if data_fusion_params is not None:
                         data_fusion_data_all.append(data_fusion_params['df_data_rounds'])
@@ -291,7 +302,7 @@ if __name__ == "__main__":
     
                     print('Repetition ', i)
     
-                pickle_variables = [optima, X_steps, Y_steps, data_fusion_data_all,
+                pickle_variables = [optima, X_accum, Y_accum, data_fusion_data_all,
                                     results, lengthscales_all, variances_all, max_gradients_all]
                 
                 # Save the results as an backup
@@ -315,8 +326,8 @@ if __name__ == "__main__":
                     dbfile.close()
     
                 optima = pickle_variables[0]
-                X_steps = pickle_variables[1]
-                Y_steps = pickle_variables[2]
+                X_accum = pickle_variables[1]
+                Y_accum = pickle_variables[2]
                 data_fusion_data_all = pickle_variables[3]
                 results = pickle_variables[4]
                 lengthscales_all = pickle_variables[5]
@@ -355,8 +366,8 @@ if __name__ == "__main__":
     
             for i in range(bo_params['n_repetitions']):
     
-                Y_step_all = Y_steps[i]
-                X_step_all = X_steps[i]
+                Y_step_all = Y_accum
+                X_step_all = X_accum
     
                 for j in range(bo_params['n_rounds']):
     
@@ -398,9 +409,8 @@ if __name__ == "__main__":
     
                     n_df_points.append([])
     
-                    # BO rounds, note that the last suggestion is always for the round
-                    # that has not yet been implemented.
-                    for j in range(len(data_fusion_data_all[i])-1):
+                    # BO rounds.
+                    for j in range(len(data_fusion_data_all[i])):
     
                         if j == 0:
                             n_df_points[i].append(
@@ -432,4 +442,4 @@ if __name__ == "__main__":
     
                 plt.show()
                 
-        del next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_step, Y_step, surrogate_model_params, data_fusion_params, bo_models
+        del next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models

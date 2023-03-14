@@ -53,7 +53,7 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         nlevels = 26
         
         minvalue = norm.vmin-(np.abs(norm.vmin)/1000)
-        maxvalue = norm.vmax# + (np.abs(norm.vmax)/1000)
+        maxvalue = norm.vmax + (np.abs(norm.vmax)/1000)
         
         # If 0 is less than 2 steps away from the lower end of the colorbar 
         # range, default the colorbar lower end to 0 (because it looks more tidy).
@@ -80,7 +80,7 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
             surf_levels[tick_idx] = np.round(surf_levels[tick_idx], 
                                                   -int(np.floor(np.log10(norm.vmax))-n_sign_digits))
             surf_levels[tick_idx[-1]] = np.round(surf_levels[tick_idx[-1]], 
-                                                  -int(np.ceil(np.log10(norm.vmax))-n_sign_digits))
+                                                  -int(np.ceil(np.log10(norm.vmax))-n_sign_digits-1))
             
         else:
             surf_levels[tick_idx[0:-1]] = np.round(surf_levels[tick_idx[0:-1]], 1)

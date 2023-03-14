@@ -130,9 +130,9 @@ if __name__ == "__main__":
     folder = './Results/20230307/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 5,
-                 'n_rounds': 4,
-                 'n_init': 5,
+    bo_params = {'n_repetitions': 1,
+                 'n_rounds': 2,
+                 'n_init': 15,
                  'batch_size': 5,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
                  }        

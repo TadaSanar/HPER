@@ -112,6 +112,8 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_
 if __name__ == "__main__":
     ###############################################################################
     
+    print(os.getcwd())
+    
     c_eig = [0.05, 0.1, 0.25, 0.5, 0.75, 1] # Expected information gain.
     c_exclz = [5, 10, 20, 30, 40] # Size of the exclusion zone in percentage points (max. 100)
     c_g = list(c_g(np.array([0.05, 0.2, 0.5, 0.8, 0.95]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75

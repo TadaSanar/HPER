@@ -30,4 +30,4 @@ print(os.getcwd())
 path = './Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222'
 print(os.path.isfile(path))
 
-stability_model = load_ground_truth(bo_ground_truth_model_path)
+stability_model = load_ground_truth(path)

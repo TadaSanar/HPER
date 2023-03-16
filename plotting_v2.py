@@ -84,7 +84,8 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
             surf_levels[tick_idx[-1]] = np.round(surf_levels[tick_idx[-1]], 
                                                   -int(np.ceil(np.log10(norm.vmax))-n_sign_digits-1))
             
-        else:
+        elif norm.vmax != 0:
+            
             surf_levels[tick_idx[0:-1]] = np.round(surf_levels[tick_idx[0:-1]], 1)
         
         print('surflevels', surf_levels)    

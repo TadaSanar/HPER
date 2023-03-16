@@ -132,8 +132,8 @@ def repeated_tests(m):
     folder = './Results/20230316-bg/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 2,
-                 'n_rounds': 2,
+    bo_params = {'n_repetitions': 50,
+                 'n_rounds': 60,
                  'n_init': 2,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -447,7 +447,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 3
+    m_total = 10
     ###############################################################################
     
     with mp.Pool() as pool:

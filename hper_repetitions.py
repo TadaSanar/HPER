@@ -114,9 +114,9 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    c_eig = [0.05, 0.1, 0.25, 0.5, 0.75, 1] # Expected information gain.
-    c_exclz = [5, 10, 20, 30, 40] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(c_g(np.array([0.05, 0.2, 0.5, 0.8, 0.95]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [0.25] # Expected information gain.
+    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = list(c_g(np.array([0.8026]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -129,20 +129,20 @@ if __name__ == "__main__":
     
             hyperparams_eig.append((c_g[i], c_eig[k]))
     
-    folder = './Results/20230307/'
+    folder = './Results/20230316/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 1,
-                 'n_rounds': 2,
-                 'n_init': 15,
-                 'batch_size': 5,
+    bo_params = {'n_repetitions': 30,
+                 'n_rounds': 60,
+                 'n_init': 2,
+                 'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
                  }        
     
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     
     ###############################################################################
     

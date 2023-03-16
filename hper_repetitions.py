@@ -56,13 +56,13 @@ def ternary_rand_vector(n):
 
 def p_above(c_g, std = 1):
     
-    p = 1 - erf(c_g/(std * np.sqrt(2)))
+    p = np.round(1 - erf(c_g/(std * np.sqrt(2))), 3)
     
     return p
 
 def c_g(p_above, std = 1):
     
-    c_g = np.sqrt(2) * std * erfinv(1-p_above)
+    c_g = np.round(np.sqrt(2) * std * erfinv(1-p_above), 3)
     
     return c_g
 
@@ -114,9 +114,9 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    c_eig = [0.25] # Expected information gain.
+    c_eig = [0.2, 0.8] # Expected information gain.
     c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(c_g(np.array([0.8026]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_g = list(c_g(np.array([0.2, 0.5, 0.8]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -129,10 +129,10 @@ if __name__ == "__main__":
     
             hyperparams_eig.append((c_g[i], c_eig[k]))
     
-    folder = './Results/20230316/'
+    folder = './Results/20230316-bg/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 30,
+    bo_params = {'n_repetitions': 50,
                  'n_rounds': 60,
                  'n_init': 2,
                  'batch_size': 1,
@@ -177,12 +177,12 @@ if __name__ == "__main__":
                 acquisition_function = 'EI_DFT'
                 color = sn.color_palette()[2]
                 # Which data to fetch (if you only fetch and do not calculate new)?
-                fetch_file_date = ''
-                color = np.array(sn.color_palette()[c_eig.index(c_e)+2])*(
-                    1 + c_g.index(c_grad) / len(c_g))
-                for i in range(len(color)):
-                    if color[i] > 1:
-                        color[i] = 1
+                fetch_file_date = None
+                #color = np.array(sn.color_palette()[c_eig.index(c_e)+2])*(
+                #    1 + c_g.index(c_grad) / len(c_g))
+                #for i in range(len(color)):
+                #    if color[i] > 1:
+                #        color[i] = 1
                 # =============================================================================
             
             else:
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                 acquisition_function = 'EI_DFT'
                 # Which data to fetch (if you only fetch and do not calculate new)?
                 fetch_file_date = None
-                color = sn.color_palette()[m]
+                color = sn.color_palette()[3]
     
             
             ###############
@@ -236,8 +236,8 @@ if __name__ == "__main__":
             all_starting_points = []
             results = []
             optima = []
-            X_accum = []
-            Y_accum = []
+            X_accum_all = []
+            Y_accum_all = []
             data_fusion_data_all = []
             lengthscales_all = []
             variances_all = []
@@ -292,8 +292,8 @@ if __name__ == "__main__":
                     
                     optima.append(optimum[:,-1])
     
-                    X_accum.append(X_accum)
-                    Y_accum.append(Y_accum)
+                    X_accum_all.append(X_accum)
+                    Y_accum_all.append(Y_accum)
     
                     if data_fusion_params is not None:
                         data_fusion_data_all.append(data_fusion_params['df_data_rounds'])
@@ -304,7 +304,7 @@ if __name__ == "__main__":
     
                     print('Repetition ', i)
     
-                pickle_variables = [optima, X_accum, Y_accum, data_fusion_data_all,
+                pickle_variables = [optima, X_accum_all, Y_accum_all, data_fusion_data_all,
                                     results, lengthscales_all, variances_all, max_gradients_all]
                 
                 # Save the results as an backup
@@ -328,8 +328,8 @@ if __name__ == "__main__":
                     dbfile.close()
     
                 optima = pickle_variables[0]
-                X_accum = pickle_variables[1]
-                Y_accum = pickle_variables[2]
+                X_accums = pickle_variables[1]
+                Y_accums = pickle_variables[2]
                 data_fusion_data_all = pickle_variables[3]
                 results = pickle_variables[4]
                 lengthscales_all = pickle_variables[5]
@@ -368,13 +368,13 @@ if __name__ == "__main__":
     
             for i in range(bo_params['n_repetitions']):
     
-                Y_step_all = Y_accum
-                X_step_all = X_accum
+                Y_accum = Y_accum_all[i]
+                X_accum = X_accum_all[i]
     
                 for j in range(bo_params['n_rounds']):
     
-                    idx_optimum = np.argmin(Y_step_all[j])
-                    X_optimum = X_step_all[j][idx_optimum]
+                    idx_optimum = np.argmin(Y_accum[j])
+                    X_optimum = X_accum[j][idx_optimum]
                     regret = np.sqrt(np.sum((ground_truth - X_optimum)**2))
                     regrets[i][j] = regret
     

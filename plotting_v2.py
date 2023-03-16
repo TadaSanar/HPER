@@ -71,12 +71,14 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         # Every 5th surf level will have a tick mark so they need to be fixed
         # to a two digit value.
         tick_idx = np.arange(1,nlevels+1,5)
-        if (norm.vmax >= 0): # Full range above zero.
+        if (norm.vmax > 0):
             
             if np.log10(step) > -2:
                 n_sign_digits = 2 # Works for almost all the values because there is exp scale in the colorbar.
-            else: # Very small values, need more accuracy in surf level stepping.
+            elif step != 0: # Very small values, need more accuracy in surf level stepping.
                 n_sign_digits = np.abs(np.floor(np.log10(step)))
+            else:
+                n_sign_digits = 2
             surf_levels[tick_idx] = np.round(surf_levels[tick_idx], 
                                                   -int(np.floor(np.log10(norm.vmax))-n_sign_digits))
             surf_levels[tick_idx[-1]] = np.round(surf_levels[tick_idx[-1]], 

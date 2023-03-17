@@ -139,10 +139,10 @@ def repeated_tests(m):
     folder = './Results/20230317/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 2,
-                 'n_rounds': 2,
+    bo_params = {'n_repetitions': 75,
+                 'n_rounds': 100,
                  'n_init': 2,
-                 'batch_size': 10,
+                 'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
                  }        
     
@@ -454,7 +454,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 24
+    m_total = 52
     ###############################################################################
     # get number of cpus available to job
     try:

@@ -63,8 +63,8 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
             minvalue = 0
             step = (maxvalue - minvalue) / nlevels
         
-        print('norm', norm.vmin, norm.vmax, 'extrema', minvalue, maxvalue,
-              'step', step)
+        #print('norm', norm.vmin, norm.vmax, 'extrema', minvalue, maxvalue,
+        #      'step', step)
         
         surf_levels = np.arange(minvalue, maxvalue + step, step)
         
@@ -88,7 +88,7 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
             
             surf_levels[tick_idx[0:-1]] = np.round(surf_levels[tick_idx[0:-1]], 1)
         
-        print('surflevels', surf_levels)    
+        #print('surflevels', surf_levels)    
     
     # plot the contour
     im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels, norm = norm)

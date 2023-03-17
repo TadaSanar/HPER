@@ -18,7 +18,6 @@ from scipy.special import erf, erfinv
 
 import multiprocessing as mp
 import tqdm
-
 #%load_ext autoreload
 #%autoreload 2
 
@@ -69,17 +68,25 @@ def cg(p_above, std = 1):
     
     return c_g
 
-def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_file_date = None):
+def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_file_date = None, m = None):
 
     if fetch_file_date is None:
         
         # Create new files and folders.
         time_now = '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
         
+        if m is not None:
+            
+            time_now = time_now + '-m' + str(m)
+        
     else:
         
         # Existing files and folders.
         time_now = fetch_file_date
+        
+        if m is not None:
+            
+            time_now = time_now + '-m' + str(m)
     
     t_folder = folder + time_now + '/'
         
@@ -114,9 +121,9 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_
 
 def repeated_tests(m):    
     
-    c_eig = [0.2, 0.8] # Expected information gain.
-    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(cg(np.array([0.2, 0.5, 0.8]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95] # Expected information gain.
+    c_exclz = [5, 10, 20] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = list(cg(np.array([0.05, 0.2, 0.5, 0.8, 0.95]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -129,13 +136,13 @@ def repeated_tests(m):
     
             hyperparams_eig.append((c_g[i], c_eig[k]))
     
-    folder = './Results/20230316-bg/'
+    folder = './Results/20230317/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 50,
-                 'n_rounds': 60,
+    bo_params = {'n_repetitions': 2,
+                 'n_rounds': 2,
                  'n_init': 2,
-                 'batch_size': 1,
+                 'batch_size': 10,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
                  }        
     
@@ -152,7 +159,7 @@ def repeated_tests(m):
             acquisition_function = 'EI'
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
-            color = sn.color_palette()[m]
+            color = sn.color_palette()[0]
             
         elif m == 1:
 
@@ -161,7 +168,7 @@ def repeated_tests(m):
             acquisition_function = 'EI_DFT'
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
-            color = sn.color_palette()[m]
+            color = sn.color_palette()[2]
 
         elif (m < len(hyperparams_eig)+2):
             
@@ -170,7 +177,7 @@ def repeated_tests(m):
             c_grad = hyperparams_eig[m-2][0]
             c_e = hyperparams_eig[m-2][1]
             acquisition_function = 'EI_DFT'
-            color = sn.color_palette()[2]
+            color = sn.color_palette()[1]
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
             #color = np.array(sn.color_palette()[c_eig.index(c_e)+2])*(
@@ -221,7 +228,7 @@ def repeated_tests(m):
         pickle_filenames, figure_filenames = build_filenames(folder, bo_params,
                                                              acq_fun_descr,
                                                              df_data_coll_descr,
-                                                             fetch_file_date = fetch_file_date)
+                                                             fetch_file_date = fetch_file_date, m=m)
 
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
@@ -240,14 +247,14 @@ def repeated_tests(m):
         
         if fetch_old_results == False:
         
-            print(i, bo_params['materials'], bo_params['n_rounds'],
-                  bo_params['batch_size'], acquisition_function)
+            #print(i, bo_params['materials'], bo_params['n_rounds'],
+            #      bo_params['batch_size'], acquisition_function)
     
             for i in range(bo_params['n_repetitions']):
             
                 all_starting_points.append(ternary_rand_vector(bo_params['n_init']))
                 
-                print(all_starting_points[i])
+                #print(all_starting_points[i])
                 
                 # Plot the BO for the first two iterations.
                 if i < 1:
@@ -304,7 +311,7 @@ def repeated_tests(m):
             
             # Save the results as an backup
             for i in range(len(pickle_variables)):
-               print('Saving variable ', pickle_filenames[i])
+               #print('Saving variable ', pickle_filenames[i])
                filename = pickle_filenames[i]
                dbfile = open(filename, 'ab')
                pickle.dump(pickle_variables[i], dbfile)
@@ -447,7 +454,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 10
+    m_total = 5
     ###############################################################################
     
     with mp.Pool() as pool:

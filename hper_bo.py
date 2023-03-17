@@ -642,7 +642,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
             result = pd.DataFrame(new_df_points_x, 
                                           columns = acq_fun_params['df_input_var'])
             
-            print('Round ' + str(k) + ': ', result)
+            #print('Round ' + str(k) + ': ', result)
             
             if df_data_coll_params['use_model'] == False:
                         
@@ -936,7 +936,6 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
     # DATA TREATMENT, PLOTTING, SAVING
     
     print('Last suggestions for the next sampling points: ', x_next[-1])
-    print('Results are saved into the given folder.')
     
     # Save the model as an backup
     # dbfile = open('Backup-model-{date:%Y%m%d%H%M%S}'.format(date=datetime.datetime.now()), 'ab') 
@@ -1001,5 +1000,7 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
     X_rounds = X_rounds.copy()
     Y_rounds = Y_rounds.copy()
     BO_objects = BO_objects.copy()
+    
+    print('Results are saved into the given folder.')
     
     return next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects

@@ -456,7 +456,15 @@ if __name__ == "__main__":
     
     m_total = 5
     ###############################################################################
+    # get number of cpus available to job
+    try:
+        ncpus = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
+    except KeyError:
+        ncpus = mp.cpu_count()
     
-    with mp.Pool() as pool:
+
+    # create pool of ncpus workers
+    with mp.Pool(ncpus) as pool:
+        # apply work function in parallel
         list(tqdm.tqdm(pool.imap(repeated_tests, range(m_total)), total=m_total))
     

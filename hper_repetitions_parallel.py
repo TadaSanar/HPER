@@ -454,7 +454,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 5
+    m_total = 24
     ###############################################################################
     # get number of cpus available to job
     try:

@@ -542,7 +542,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
         
         # Sample only if the suggested point has a larger gradient than this
         # limit.
-        gradient_limit = np.sqrt(variance_s)/lengthscale_s*c_grad
+        gradient_limit = (np.sqrt(variance_s)/lengthscale_s)*c_grad
         
         # Max. gradients of the next suggested points in the surrogate model.
         grad_max_s_next = current_surrogate_model_params['max_gradient']

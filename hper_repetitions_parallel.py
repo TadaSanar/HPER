@@ -17,6 +17,7 @@ from hper_bo import bo_sim_target, acq_param_builder, acq_fun_param2descr, df_da
 from scipy.special import erf, erfinv
 
 import multiprocessing as mp
+from tqdm.contrib.concurrent import  process_map
 import tqdm
 #%load_ext autoreload
 #%autoreload 2
@@ -119,6 +120,17 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_
             
     return pickle_filenames, figure_filenames
 
+def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
+    
+    # Has been tested only for nreps.
+    
+    idx0 = filename.find(param_to_modify_str) + len(param_to_modify_str)
+    idx1 = filename[idx0::].find('_') + idx0
+    
+    new_filename = filename[0:idx0] + str(new_value) + filename[idx1::]
+    
+    return new_filename
+
 def repeated_tests(m):    
     
     c_eig = [0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95] # Expected information gain.
@@ -132,14 +144,14 @@ def repeated_tests(m):
     
             hyperparams_exclz.append((c_g[i], c_exclz[j]))
     
-        for k in range(len(c_eig)):
+        for j in range(len(c_eig)):
     
-            hyperparams_eig.append((c_g[i], c_eig[k]))
+            hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230317/'
+    folder = './Results/20230320/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 75,
+    bo_params = {'n_repetitions': 100,
                  'n_rounds': 100,
                  'n_init': 2,
                  'batch_size': 1,
@@ -229,7 +241,7 @@ def repeated_tests(m):
                                                              acq_fun_descr,
                                                              df_data_coll_descr,
                                                              fetch_file_date = fetch_file_date, m=m)
-
+        
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
 
@@ -288,7 +300,9 @@ def repeated_tests(m):
                     acq_fun_params = afp,
                     df_data_coll_params = ddcp,
                     no_plots=no_plots, results_folder = folder)
-
+                
+                # All ouputs saved only from the first two repetitions to save
+                # disk space.
                 if i < 2:
                     results.append([bo_models, next_suggestions])
                 
@@ -304,18 +318,37 @@ def repeated_tests(m):
                 variances_all.append(surrogate_model_params['variances'])
                 max_gradients_all.append(surrogate_model_params['max_gradients'])
 
-                print('Repetition ', i)
-
-            pickle_variables = [optima, X_accum_all, Y_accum_all, data_fusion_data_all,
-                                results, lengthscales_all, variances_all, max_gradients_all]
-            
-            # Save the results as an backup
-            for i in range(len(pickle_variables)):
-               #print('Saving variable ', pickle_filenames[i])
-               filename = pickle_filenames[i]
-               dbfile = open(filename, 'ab')
-               pickle.dump(pickle_variables[i], dbfile)
-               dbfile.close()
+                print('Method ' + str(m) + ', repetition ' + str(i))
+                
+                # Save results after all repetitions have been done but also two
+                # times in between if the total number of repetitions is large.
+                if (i == (bo_params['n_repetitions']-1)) or (
+                        (bo_params['n_repetitions']>15) and 
+                        (np.remainder((i+1), 
+                                int(np.floor(bo_params['n_repetitions']/3)))
+                         == 0)):
+                    
+                    pickle_variables = [optima, X_accum_all, Y_accum_all, 
+                                data_fusion_data_all, results, lengthscales_all, 
+                                variances_all, max_gradients_all]
+                                
+                    # Save the results as an backup
+                    for j in range(len(pickle_variables)):
+                        
+                        print('Saving variable ', pickle_filenames[j])
+                        if i < bo_params['n_repetitions']:
+                            
+                            # Temporary filename for temp run safe-copies.
+                            filename = modify_filename_nreps(
+                                pickle_filenames[j], i)
+                        
+                        else:
+                            
+                            filename = pickle_filenames[j]
+                            
+                        dbfile = open(filename, 'ab')
+                        pickle.dump(pickle_variables[j], dbfile)
+                        dbfile.close()
 
         else:
 
@@ -330,8 +363,8 @@ def repeated_tests(m):
                 dbfile.close()
 
             optima = pickle_variables[0]
-            X_accums = pickle_variables[1]
-            Y_accums = pickle_variables[2]
+            X_accum_all = pickle_variables[1]
+            Y_accum_all = pickle_variables[2]
             data_fusion_data_all = pickle_variables[3]
             results = pickle_variables[4]
             lengthscales_all = pickle_variables[5]
@@ -455,6 +488,7 @@ if __name__ == "__main__":
     print(os.getcwd())
     
     m_total = 52
+    
     ###############################################################################
     # get number of cpus available to job
     try:
@@ -462,9 +496,11 @@ if __name__ == "__main__":
     except KeyError:
         ncpus = mp.cpu_count()
     
-
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:
         # apply work function in parallel
+        
+        # TO DO: Both versions work, which one is faster/better?
         list(tqdm.tqdm(pool.imap(repeated_tests, range(m_total)), total=m_total))
+        #r = process_map(repeated_tests, range(m_total), max_workers = ncpus)
     

@@ -974,6 +974,8 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
                    limit_file_number = True, time_str = time_now,
                    results_folder = results_folder)
         
+        print('Results are saved into the given folder.')
+        
         plt.figure()
         plt.plot(range(rounds), optimum)
         plt.show()
@@ -1000,7 +1002,5 @@ def bo_sim_target(bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with
     X_rounds = X_rounds.copy()
     Y_rounds = Y_rounds.copy()
     BO_objects = BO_objects.copy()
-    
-    print('Results are saved into the given folder.')
     
     return next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects

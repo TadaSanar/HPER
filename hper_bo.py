@@ -533,6 +533,8 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
         
         # Gradient criterion.
         
+        #print('Checking gradient criterion.')
+        
         # Constant for the gradient limit.
         c_grad = df_data_coll_params['c_grad']
         
@@ -557,13 +559,14 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
         # previously sampled points (in unknown region).
         new_df_points_x_u = x_next[k][grad_max_s_next <= gradient_limit]
         
-        # Drop the points that are excluded from the points to be queried
-        # because there are previous human evaluations nearby.
-        if df_data_coll_params['method'] == 'exclz':
+        # If there are points to be considered based on exclusion zone or 
+        # gradient criterion.
+        if new_df_points_x_g.shape[0] > 0:
             
-            # If there are points to be considered based on exclusion zone.
-            if new_df_points_x_g.shape[0] > 0:
-            
+            # Drop the points that are excluded from the points to be queried
+            # because there are previous human evaluations nearby.
+            if df_data_coll_params['method'] == 'exclz':
+                
                 # Drop points with an earlier data fusion point nearby.
                 # 'Nearby' is X% of the domain length here.
                 c_exclz = df_data_coll_params['c_exclz']
@@ -588,24 +591,25 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                             
                             index = index + 1
      
-        elif df_data_coll_params['method'] == 'eig':
+            elif df_data_coll_params['method'] == 'eig':
             
-            # If the data fusion model exists already.
-            if data_fusion_XZ_accum[k].shape[0] > 0:
-            
-                # Drop points based on expected information gain for the human
-                # opinion model.
+                # If the data fusion model exists already.
+                if data_fusion_XZ_accum[k].shape[0] > 0:
                 
-                # Let's re-create the human opinion model for EIG test.
-                current_df_model = GP_model(data_fusion_XZ_accum[k],
+                    #print('Points that passed the gradient criterion:\n', 
+                    #      new_df_points_x_g)
+                    
+                    # Drop points if the expected information gain for the
+                    # human opinion model is too low.
+                    
+                    # Let's re-create the human opinion model for EIG test.
+                    current_df_model = GP_model(data_fusion_XZ_accum[k],
                                             acq_fun_params['df_target_var'],
                                             acq_fun_params['gp_lengthscale'],
                                             acq_fun_params['gp_variance'],
                                             acq_fun_params['df_input_var'])
-                #data_fusion_models[j] = current_df_model
+                    #data_fusion_models[j] = current_df_model
                 
-                if new_df_points_x_g.shape[0] > 0:
-                    
                     # Variance on each point x (pred. from the data fusion 
                     # model).
                     var_d_next = predict_points(current_df_model, new_df_points_x_g)[1]
@@ -623,6 +627,9 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                         # based on that (i.e., c_eig = 1 samples very little,
                         # c_eig = 0 does not limit at all).
                         eig_max = 0.5 * np.log10(2)
+                        
+                        #print(var_d_next[l,0], vary_d)
+                        #print('EIG here: ', eig)
                         
                         if eig < (eig_max * c_eig):
                             

@@ -114,9 +114,9 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    c_eig = [0.2, 0.8] # Expected information gain.
-    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(c_g(np.array([0.2, 0.5, 0.8]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [0.01]#[0.2, 0.8] # Expected information gain.
+    c_exclz = [] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = list(c_g(np.array([0.95])))#list(c_g(np.array([0.2, 0.5, 0.8]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -129,11 +129,11 @@ if __name__ == "__main__":
     
             hyperparams_eig.append((c_g[i], c_eig[k]))
     
-    folder = './Results/20230316-bg/'
+    folder = './Results/20230323/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 50,
-                 'n_rounds': 60,
+    bo_params = {'n_repetitions': 1,
+                 'n_rounds': 50,
                  'n_init': 2,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     ###############################################################################
     
     # Viikon
-    for m in range(2 + len(hyperparams_eig) + len(hyperparams_exclz)):
+    for m in [2]:#range(2 + len(hyperparams_eig) + len(hyperparams_exclz)):
     
         if (m > -1):
     

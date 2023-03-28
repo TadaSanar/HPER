@@ -340,7 +340,7 @@ def repeated_tests(m):
                             
                             # Temporary filename for temp run safe-copies.
                             filename = modify_filename_nreps(
-                                pickle_filenames[j], i)
+                                pickle_filenames[j], i+1)
                         
                         else:
                             

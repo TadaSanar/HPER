@@ -133,9 +133,9 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 
 def repeated_tests(m):    
     
-    c_eig = [10, 20, 30] # Expected information gain.
-    c_exclz = [] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = [1.96, 1.282, 0.253, 0.063, 0]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [1,2,3,4,5,6,7,8,9,10] # Expected information gain.
+    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = [0.253, 1.282]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -148,10 +148,10 @@ def repeated_tests(m):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230323/'
+    folder = './Results/20230328-2/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 100,
+    bo_params = {'n_repetitions': 5,
                  'n_rounds': 100,
                  'n_init': 2,
                  'batch_size': 1,
@@ -487,7 +487,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 17
+    m_total = 24
     
     ###############################################################################
     # get number of cpus available to job

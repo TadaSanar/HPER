@@ -118,7 +118,7 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_
     for i in figs:
         figure_filenames.append(filename_prefix + i)
             
-    return pickle_filenames, figure_filenames
+    return pickle_filenames, figure_filenames, t_folder
 
 def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
     
@@ -133,9 +133,9 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 
 def repeated_tests(m):    
     
-    c_eig = [1,2,3,4,5,6,7,8,9,10] # Expected information gain.
-    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = [0.253, 1.282]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [0, 0.5, 1, 2, 5, 10] # Expected information gain.
+    c_exclz = [1,5,10,20] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = [2.576, 1.96, 1.282, 0.674, 0.253, 0.063, 0.013, 0]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -148,11 +148,11 @@ def repeated_tests(m):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230328-2/'
+    folder = './Results/20230404-rough-scan/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 5,
-                 'n_rounds': 100,
+    bo_params = {'n_repetitions': 2,
+                 'n_rounds': 15,
                  'n_init': 2,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -237,10 +237,9 @@ def repeated_tests(m):
 
         df_data_coll_descr = df_data_coll_method_param2descr(df_data_coll_params)
         
-        pickle_filenames, figure_filenames = build_filenames(folder, bo_params,
-                                                             acq_fun_descr,
-                                                             df_data_coll_descr,
-                                                             fetch_file_date = fetch_file_date, m=m)
+        pickle_filenames, figure_filenames, triangle_folder = build_filenames(
+            folder, bo_params, acq_fun_descr, df_data_coll_descr,
+            fetch_file_date = fetch_file_date, m=m)
         
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
@@ -299,7 +298,7 @@ def repeated_tests(m):
                     acquisition_function = acquisition_function,
                     acq_fun_params = afp,
                     df_data_coll_params = ddcp,
-                    no_plots=no_plots, results_folder = folder)
+                    no_plots=no_plots, results_folder = triangle_folder)
                 
                 # All ouputs saved only from the first two repetitions to save
                 # disk space.
@@ -487,7 +486,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 24
+    m_total = 74
     
     ###############################################################################
     # get number of cpus available to job
@@ -501,6 +500,6 @@ if __name__ == "__main__":
         # apply work function in parallel
         
         # TO DO: Both versions work, which one is faster/better?
-        list(tqdm.tqdm(pool.imap(repeated_tests, range(m_total)), total=m_total))
-        #r = process_map(repeated_tests, range(m_total), max_workers = ncpus)
+        #list(tqdm.tqdm(pool.imap(repeated_tests, range(m_total)), total=m_total))
+        r = process_map(repeated_tests, range(m_total), max_workers = ncpus)
     

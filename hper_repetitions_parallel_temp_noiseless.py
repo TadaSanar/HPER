@@ -148,7 +148,7 @@ def repeated_tests(m):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230413-jitter01-noiseless/'
+    folder = './Results/20230413-jitter001-noiseless/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
     bo_params = {'n_repetitions': 25,

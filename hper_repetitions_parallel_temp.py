@@ -133,9 +133,9 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 
 def repeated_tests(m):    
     
-    c_eig = [0, 0.5, 1, 2, 5, 10] # Expected information gain.
-    c_exclz = [1,5,10,20] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = [2.576, 1.96, 1.282, 0.674, 0.253, 0.063, 0.013, 0]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [0.1, 1, 2, 5] # Expected information gain.
+    c_exclz = [1, 5, 10, 20] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = [0.063, 0.253, 0.674, 1.282, 1.96]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -148,11 +148,11 @@ def repeated_tests(m):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230404-rough-scan/'
+    folder = './Results/20230413-jitter01-noiseless/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 2,
-                 'n_rounds': 15,
+    bo_params = {'n_repetitions': 25,
+                 'n_rounds': 100,
                  'n_init': 2,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -163,7 +163,7 @@ def repeated_tests(m):
     # Give False if you don't want to save the figures.
     save_figs = True
     
-    if (m > -1):
+    if (m > 1): # TO DO change
 
         if m == 0:
 
@@ -486,7 +486,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 74
+    m_total = 42
     
     ###############################################################################
     # get number of cpus available to job
@@ -502,4 +502,5 @@ if __name__ == "__main__":
         # TO DO: Both versions work, which one is faster/better?
         #list(tqdm.tqdm(pool.imap(repeated_tests, range(m_total)), total=m_total))
         r = process_map(repeated_tests, range(m_total), max_workers = ncpus)
+    
     

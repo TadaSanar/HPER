@@ -163,7 +163,7 @@ def repeated_tests(m):
     # Give False if you don't want to save the figures.
     save_figs = True
     
-    if (m > 1): # TO DO change
+    if (m > -1):
 
         if m == 0:
 

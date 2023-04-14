@@ -570,7 +570,13 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
         # Pick new points for which the surrogate model has a high gradient, no
         # matter if there is an earlier data fusion point nearby.
         new_df_points_x_g = x_next[k][grad_max_s_next > gradient_limit]
-
+        
+        print('\nGradients of points surviving gradient limit:\n', 
+              grad_max_s_next[grad_max_s_next > gradient_limit])
+        
+        print('\nGradients of points not surviving gradient limit:\n', 
+              grad_max_s_next[grad_max_s_next < gradient_limit])
+        
         # THIS OPTION IS NOT IN USE.
         # Pick new points for which the surrogate model does not have
         # a high gradient but they are located far away from the
@@ -691,7 +697,8 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                   init_points=None, batch_size=1,
                   acquisition_function='EI', acq_fun_params=None,
                   df_data_coll_params=None, no_plots=False,
-                  results_folder='./Results/'):
+                  results_folder='./Results/', noise_df = False, 
+                  noise_target = False):
     '''
     Simulates a Bayesian Optimization cycle using the Gaussian Process
     Regression model given in bo_ground_truth_model_path as the ground truth for
@@ -878,9 +885,9 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
 
         if df_data_coll_params is not None:
 
-            #print('Data fusion requests round ' +
-            #      str(k-1) + ':', data_fusion_x_next[k-1])
-            #print('Target requests round ' + str(k-1) + ':', x_next[k-1])
+            print('Data fusion requests round ' +
+                  str(k-1) + ':', data_fusion_x_next[k-1])
+            print('Target requests round ' + str(k-1) + ':', x_next[k-1])
 
             # Do data fusion.
             if data_fusion_XZ_rounds[k] is None:
@@ -890,7 +897,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                 data_fusion_XZ_rounds = query_data_fusion_XZ_this_round(
                     data_fusion_XZ_rounds, data_fusion_x_next,
                     df_data_coll_params, acq_fun_params, k,
-                    data_fusion_gt_model, noise=False)
+                    data_fusion_gt_model, noise = noise_df)
                 # TO DO: Add noise to the simulated prediction! Confirm proper
                 # scaling in GP once more. Divide the function so that
                 # experimental treatment is fully before BO loop  and simulated
@@ -918,12 +925,10 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
             # and update X_rounds, Y_rounds, X_accum, Y_accum in place.
             X_rounds, Y_rounds, X_accum, Y_accum = query_target_data_from_model(
                 k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next,
-                stability_model, rounds, materials, noise=False)
+                stability_model, rounds, materials, noise = noise_target)
 
-            #print('Target data round ' + str(k) + ':', X_accum[k], Y_accum[k])
-
-        #print('X_step and Y_step for round ' + str(k) + ':', X_step[k], Y_step[k])
-
+            print('Target data round ' + str(k) + ':', X_accum[k], Y_accum[k])
+            
         # Define and fit BO object.
         # f=None because this code will be adapted in future for experimental
         # BO cycle.
@@ -937,7 +942,11 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                                                             evaluator_type='local_penalization',
                                                             batch_size=batch_size,
                                                             acquisition_jitter=jitter,
-                                                            acq_fun_params=acq_fun_params
+                                                            acq_fun_params=acq_fun_params,
+                                                            noise_var = 0.1,
+                                                            optimize_restarts = 10,
+                                                            max_iters = 10000,
+                                                            exact_feval = (not noise_target)
                                                             )
 
         # Suggest next points (samples to prepare).
@@ -960,7 +969,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
         current_surrogate_model_params = {'lengthscale': lengthscales[k],
                                           'variance': variances[k],
                                           'max_gradient': max_gradients[k]}
-
+        
         if df_data_coll_params is not None:
 
             # Do data fusion.

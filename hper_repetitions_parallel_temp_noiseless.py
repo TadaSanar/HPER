@@ -133,9 +133,9 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 
 def repeated_tests(m):    
     
-    c_eig = [0.1, 1, 2, 5] # Expected information gain.
+    c_eig = [0.05, 0.1, 1, 2, 5, 8, 10] # Expected information gain.
     c_exclz = [1, 5, 10, 20] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = [0.063, 0.253, 0.674, 1.282, 1.96]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_g = [0, 0.063, 0.253, 0.674, 1.282, 1.96]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -148,11 +148,11 @@ def repeated_tests(m):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230413-jitter001-noiseless/'
+    folder = './Results/20230414-jitter01-noiseless-HO/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
     bo_params = {'n_repetitions': 25,
-                 'n_rounds': 100,
+                 'n_rounds': 15,
                  'n_init': 2,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -162,6 +162,9 @@ def repeated_tests(m):
     fetch_old_results = False
     # Give False if you don't want to save the figures.
     save_figs = True
+    # Choose if noisy queries are being used or exact.
+    noise_df= False
+    noise_target = False
     
     if (m > -1):
 
@@ -298,7 +301,8 @@ def repeated_tests(m):
                     acquisition_function = acquisition_function,
                     acq_fun_params = afp,
                     df_data_coll_params = ddcp,
-                    no_plots=no_plots, results_folder = triangle_folder)
+                    no_plots=no_plots, results_folder = triangle_folder,
+                    noise_df = noise_df, noise_target = noise_target)
                 
                 # All ouputs saved only from the first two repetitions to save
                 # disk space.
@@ -486,7 +490,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 42
+    m_total = 68
     
     ###############################################################################
     # get number of cpus available to job

@@ -13,26 +13,34 @@ import pickle
 import seaborn as sn
 import pandas as pd
 import numpy as np
+from numpy.random import SeedSequence
 from hper_bo import bo_sim_target, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
 from scipy.special import erf, erfinv
+
+import scipy as sp
 
 import multiprocessing as mp
 from tqdm.contrib.concurrent import  process_map
 import tqdm
+import time
+
 #%load_ext autoreload
 #%autoreload 2
 
 
-def ternary_rand():
+def ternary_rand(m):
     
     # Initialization.
     x = 1
     y = 1
     
     # Enforce ternary proportions.
+    i = 0
     while x + y > 1:
-        x = np.random.rand()
-        y = np.random.rand()
+        sp.random.seed()
+        [x, y] = np.random.rand(2)
+        i = i+1#np.random.seed((os.getpid() * int(time.time())) % 123456789)
+        #y = np.random.rand()
         
     z = 1 - x - y
 
@@ -48,12 +56,12 @@ def ternary_rand_old():
 
     return [x, y, z]
 
-def ternary_rand_vector(n):
+def ternary_rand_vector(n,m):
 
     v = []
 
     for i in range(n):
-        v.append(ternary_rand())
+        v.append(ternary_rand(m+n))
 
     return v
 
@@ -133,9 +141,9 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 
 def repeated_tests(m):    
     
-    c_eig = [0.05, 0.1, 1, 2, 5, 8, 10] # Expected information gain.
-    c_exclz = [1, 5, 10, 20] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = [0, 0.253, 0.674, 1.282, 1.96]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [1, 1.5] # Expected information gain.
+    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = [0.674]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
         
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -148,12 +156,12 @@ def repeated_tests(m):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230414-jitter01-noisytarget-HO/'
+    folder = './Results/20230417-jitter01-noisytarget-for-pres/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 50,
-                 'n_rounds': 80,
-                 'n_init': 2,
+    bo_params = {'n_repetitions': 25,
+                 'n_rounds': 100,
+                 'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
                  }        
@@ -266,12 +274,12 @@ def repeated_tests(m):
     
             for i in range(bo_params['n_repetitions']):
             
-                all_starting_points.append(ternary_rand_vector(bo_params['n_init']))
+                all_starting_points.append(ternary_rand_vector(bo_params['n_init'], m))
                 
-                #print(all_starting_points[i])
+                print('Init points: ', all_starting_points[i])
                 
                 # Plot the BO for the first two iterations.
-                if i < 1:
+                if i < 2:
                     no_plots = False
                 else:
                     no_plots = True
@@ -490,7 +498,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 57
+    m_total = 5
     
     ###############################################################################
     # get number of cpus available to job
@@ -499,6 +507,12 @@ if __name__ == "__main__":
     except KeyError:
         ncpus = mp.cpu_count()
     
+    '''
+    for i in range(m_total):
+        
+        repeated_tests(i)
+        
+    '''
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:
         # apply work function in parallel

@@ -141,10 +141,10 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 
 def repeated_tests(m):    
     
-    c_eig = [1, 1.5] # Expected information gain.
+    c_eig = [0.5, 1, 1.5, 5] # Expected information gain.
     c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = [0.674]#list(cg(np.array([0, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-        
+    c_g = list(cg(np.array([0, 0.2, 0.5, 0.8]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    
     hyperparams_eig = []
     hyperparams_exclz = []
     for i in range(len(c_g)):
@@ -159,7 +159,7 @@ def repeated_tests(m):
     folder = './Results/20230417-jitter01-noisytarget-for-pres/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 25,
+    bo_params = {'n_repetitions': 50,
                  'n_rounds': 100,
                  'n_init': 3,
                  'batch_size': 1,
@@ -498,7 +498,7 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 5
+    m_total = 22
     
     ###############################################################################
     # get number of cpus available to job

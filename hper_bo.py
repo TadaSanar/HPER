@@ -571,11 +571,11 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
         # matter if there is an earlier data fusion point nearby.
         new_df_points_x_g = x_next[k][grad_max_s_next > gradient_limit]
         
-        print('\nGradients of points surviving gradient limit:\n', 
-              grad_max_s_next[grad_max_s_next > gradient_limit])
+        #print('\nGradients of points surviving gradient limit:\n', 
+        #      grad_max_s_next[grad_max_s_next > gradient_limit])
         
-        print('\nGradients of points not surviving gradient limit:\n', 
-              grad_max_s_next[grad_max_s_next < gradient_limit])
+        #print('\nGradients of points not surviving gradient limit:\n', 
+        #      grad_max_s_next[grad_max_s_next < gradient_limit])
         
         # THIS OPTION IS NOT IN USE.
         # Pick new points for which the surrogate model does not have
@@ -649,13 +649,13 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                         eig = 0.5 * (np.log10(var_d_next[l, 0]/vary_d + 1))
                         c_eig = df_data_coll_params['c_eig']
 
-                        # Max EIG(sigma_x=sigma). Let's scale EIG scale factor
-                        # based on that (i.e., c_eig = 1 samples very little,
+                        # Let's scale EIG scale factor
+                        # based on max EIG (i.e., c_eig = 1 samples very little,
                         # c_eig = 0 does not limit at all).
-                        eig_max = 0.5 * np.log10(2)
+                        eig_max = - np.log10(1/2)
 
-                        #print(var_d_next[l,0], vary_d)
-                        #print('EIG here: ', eig)
+                        print('Var_x_next and var_y: ', var_d_next[l,0], vary_d)
+                        print('EIG here: ', eig)
 
                         if eig < (eig_max * c_eig):
 
@@ -885,9 +885,9 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
 
         if df_data_coll_params is not None:
 
-            print('Data fusion requests round ' +
-                  str(k-1) + ':', data_fusion_x_next[k-1])
-            print('Target requests round ' + str(k-1) + ':', x_next[k-1])
+            #print('Data fusion requests round ' +
+            #      str(k-1) + ':', data_fusion_x_next[k-1])
+            #print('Target requests round ' + str(k-1) + ':', x_next[k-1])
 
             # Do data fusion.
             if data_fusion_XZ_rounds[k] is None:
@@ -927,7 +927,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                 k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next,
                 stability_model, rounds, materials, noise = noise_target)
 
-            print('Target data round ' + str(k) + ':', X_accum[k], Y_accum[k])
+            #print('Target data round ' + str(k) + ':', X_accum[k], Y_accum[k])
             
         # Define and fit BO object.
         # f=None because this code will be adapted in future for experimental
@@ -983,7 +983,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     ###########################################################################
     # DATA TREATMENT, PLOTTING, SAVING
 
-    print('Last suggestions for the next sampling points: ', x_next[-1])
+    #print('Last suggestions for the next sampling points: ', x_next[-1])
 
     # Save the model as an backup
     # dbfile = open('Backup-model-{date:%Y%m%d%H%M%S}'.format(date=datetime.datetime.now()), 'ab')

@@ -24,11 +24,12 @@ from tqdm.contrib.concurrent import  process_map
 import tqdm
 import time
 
+from functools import partial
+
 #%load_ext autoreload
 #%autoreload 2
 
-
-def ternary_rand(m):
+def ternary_rand():
     
     # Initialization.
     x = 1
@@ -37,7 +38,6 @@ def ternary_rand(m):
     # Enforce ternary proportions.
     i = 0
     while x + y > 1:
-        sp.random.seed()
         [x, y] = np.random.rand(2)
         i = i+1#np.random.seed((os.getpid() * int(time.time())) % 123456789)
         #y = np.random.rand()
@@ -46,24 +46,27 @@ def ternary_rand(m):
 
     return [x, y, z]
 
-def ternary_rand_old():
-    
-    # Initialization.
-    x = np.random.rand()
-    y = np.random.rand()*(1-x)
-        
-    z = 1 - x - y
-
-    return [x, y, z]
-
-def ternary_rand_vector(n,m):
+def ternary_rand_vector(n):
 
     v = []
 
     for i in range(n):
-        v.append(ternary_rand(m+n))
+        v.append(ternary_rand())
 
     return v
+
+def create_ternary_starting_points(n_reps = 200, n_init = 20):
+    
+    all_starting_points = []
+    
+    for i in range(n_reps):
+        
+        all_starting_points.append(ternary_rand_vector(n_init))
+     
+        #print('\n\nInit points repetition ' + str(i) + ':\n' +  
+        #   str(all_starting_points[i]))
+        
+    return all_starting_points
 
 def p_above(c_g, std = 1):
     
@@ -139,11 +142,11 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
     
     return new_filename
 
-def repeated_tests(m):    
+def repeated_tests(m, starting_point_candidates):    
     
-    c_eig = [0.5, 1, 1.5, 5] # Expected information gain.
+    c_eig = [0.5] # Expected information gain.
     c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(cg(np.array([0, 0.2, 0.5, 0.8]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_g = list(cg(np.array([0.2]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
     
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -156,13 +159,13 @@ def repeated_tests(m):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230417-jitter01-noisytarget-for-pres/'
+    folder = './Results/20230425-jitter01-noisytarget100-noiselesshuman/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 50,
-                 'n_rounds': 100,
+    bo_params = {'n_repetitions': 25,
+                 'n_rounds': 40,
                  'n_init': 3,
-                 'batch_size': 1,
+                 'batch_size': 2,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
                  }        
     
@@ -273,11 +276,14 @@ def repeated_tests(m):
             #      bo_params['batch_size'], acquisition_function)
     
             for i in range(bo_params['n_repetitions']):
+                
+                all_starting_points.append(starting_point_candidates[i][0:bo_params['n_init']])
+             
+                print('\n\nInit points method ' + str(m) + ',  repetition ' + str(i) + ':\n' +  
+                   str(all_starting_points[i]))
+                
+            for i in range(bo_params['n_repetitions']):
             
-                all_starting_points.append(ternary_rand_vector(bo_params['n_init'], m))
-                
-                print('Init points: ', all_starting_points[i])
-                
                 # Plot the BO for the first two iterations.
                 if i < 2:
                     no_plots = False
@@ -498,7 +504,13 @@ if __name__ == "__main__":
     
     print(os.getcwd())
     
-    m_total = 22
+    m_total = 4
+    
+    # Create a list of seeds for repetitions (increase max_reps if you need
+    # more repetitions than the current max_rep value is).
+    max_reps = 200
+    max_init_pts = 20
+    starting_points = create_ternary_starting_points(n_reps = max_reps, n_init = max_init_pts)
     
     ###############################################################################
     # get number of cpus available to job
@@ -510,7 +522,7 @@ if __name__ == "__main__":
     '''
     for i in range(m_total):
         
-        repeated_tests(i)
+        repeated_tests(i, starting_point_candidates = starting_points)
         
     '''
     # create pool of ncpus workers
@@ -519,6 +531,9 @@ if __name__ == "__main__":
         
         # TO DO: Both versions work, which one is faster/better?
         #list(tqdm.tqdm(pool.imap(repeated_tests, range(m_total)), total=m_total))
-        r = process_map(repeated_tests, range(m_total), max_workers = ncpus)
+        r = process_map(partial(repeated_tests, 
+                                starting_point_candidates = starting_points), 
+                        range(m_total), max_workers = ncpus)
+    
     
     

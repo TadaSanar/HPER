@@ -145,9 +145,9 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 def repeated_tests(m, starting_point_candidates):    
     
     
-    c_eig = [0.1, 0.5] # Expected information gain.
-    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(cg(np.array([0.2, 0.6]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [0, 0.1, 0.5, 0.9, 1, 2] # Expected information gain.
+    c_exclz = [1, 5, 10, 20] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = list(cg(np.array([0.01, 0.2, 0.5, 0.6, 0.8, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
     
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -160,7 +160,7 @@ def repeated_tests(m, starting_point_candidates):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
             
-    jitters = [0.1, 0.02, 0.01]
+    jitters = [0.1, 0.01]
     
     
     n_eig  = len(hyperparams_eig)
@@ -169,11 +169,11 @@ def repeated_tests(m, starting_point_candidates):
     n_j = len(jitters)
 
     
-    folder = './Results/20230508-jitter001-noiselesstarget-noiselesshuman/'
+    folder = './Results/20230508-noisytarget-noiselesshuman-ho/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 50,
-                 'n_rounds': 20,
+    bo_params = {'n_repetitions': 25,
+                 'n_rounds': 50,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -514,7 +514,7 @@ if __name__ == "__main__":
     
     #print(os.getcwd())
     
-    m_total = 12
+    m_total = 124
     
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

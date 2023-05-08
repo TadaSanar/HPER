@@ -169,11 +169,11 @@ def repeated_tests(m, starting_point_candidates):
     n_j = len(jitters)
 
     
-    folder = './Results/20230508-jitter001-noiselesstarget-noiselesshuman/'
+    folder = './Results/20230508-noisytarget-noiselesshuman/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
     bo_params = {'n_repetitions': 50,
-                 'n_rounds': 20,
+                 'n_rounds': 100,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -182,7 +182,7 @@ def repeated_tests(m, starting_point_candidates):
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = True
+    save_figs = False
     # Choose if noisy queries are being used or exact.
     noise_df= False
     noise_target = True
@@ -514,7 +514,7 @@ if __name__ == "__main__":
     
     #print(os.getcwd())
     
-    m_total = 12
+    m_total = 24
     
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

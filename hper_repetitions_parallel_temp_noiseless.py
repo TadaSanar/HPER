@@ -144,9 +144,9 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 
 def repeated_tests(m, starting_point_candidates):    
     
-    c_eig = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1, 1.5, 2] # Expected information gain.
-    c_exclz = [1, 5, 10, 20] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(cg(np.array([0.05, 0.2, 0.5, 0.8, 0.95, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_eig = [0.5] # Expected information gain.
+    c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
+    c_g = list(cg(np.array([0.6]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
     
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -159,10 +159,10 @@ def repeated_tests(m, starting_point_candidates):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
     
-    folder = './Results/20230426-jitter01-noiselesstarget-noiselesshuman-ho/'
+    folder = './Results/20230508-jitter001-noiselesstarget-noiselesshuman/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 25,
+    bo_params = {'n_repetitions': 50,
                  'n_rounds': 20,
                  'n_init': 3,
                  'batch_size': 1,
@@ -172,7 +172,7 @@ def repeated_tests(m, starting_point_candidates):
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     # Choose if noisy queries are being used or exact.
     noise_df= False
     noise_target = False
@@ -504,7 +504,7 @@ if __name__ == "__main__":
     
     #print(os.getcwd())
     
-    m_total = 80
+    m_total = 10
     
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

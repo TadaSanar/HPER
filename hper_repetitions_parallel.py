@@ -29,7 +29,6 @@ from functools import partial
 #%load_ext autoreload
 #%autoreload 2
 
-
 def ternary_rand():
     
     # Initialization.
@@ -145,9 +144,10 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 
 def repeated_tests(m, starting_point_candidates):    
     
-    c_eig = [0.5] # Expected information gain.
+    
+    c_eig = [0.1, 0.5] # Expected information gain.
     c_exclz = [5] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(cg(np.array([0, 0.2, 0.5, 0.8]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_g = list(cg(np.array([0.2, 0.6]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
     
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -159,14 +159,23 @@ def repeated_tests(m, starting_point_candidates):
         for j in range(len(c_eig)):
     
             hyperparams_eig.append((c_g[i], c_eig[j]))
+            
+    jitters = [0.1, 0.02, 0.01]
     
-    folder = './Results/20230424-testing-reps-noisy/'
+    
+    n_eig  = len(hyperparams_eig)
+    n_exclz  = len(hyperparams_exclz)
+    n_hpars = 2 + n_eig + n_exclz
+    n_j = len(jitters)
+
+    
+    folder = './Results/20230508-jitter001-noiselesstarget-noiselesshuman/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 10,
-                 'n_rounds': 2,
+    bo_params = {'n_repetitions': 50,
+                 'n_rounds': 20,
                  'n_init': 3,
-                 'batch_size': 5,
+                 'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
                  }        
     
@@ -180,7 +189,7 @@ def repeated_tests(m, starting_point_candidates):
     
     if (m > -1):
 
-        if m == 0:
+        if (m % n_hpars) == 0:
 
             data_fusion_property = None
             acquisition_function = 'EI'
@@ -188,7 +197,7 @@ def repeated_tests(m, starting_point_candidates):
             fetch_file_date = None
             color = sn.color_palette()[0]
             
-        elif m == 1:
+        elif (m % n_hpars) == 1:
 
             data_fusion_property = 'visual'
             df_data_coll_method = 'model_all'
@@ -197,12 +206,12 @@ def repeated_tests(m, starting_point_candidates):
             fetch_file_date = None
             color = sn.color_palette()[2]
 
-        elif (m < len(hyperparams_eig)+2):
+        elif (m % n_hpars) < (n_hpars - n_exclz):
             
             data_fusion_property = 'visual'
             df_data_coll_method = 'model_necessary_eig'
-            c_grad = hyperparams_eig[m-2][0]
-            c_e = hyperparams_eig[m-2][1]
+            c_grad = hyperparams_eig[(m % n_hpars)-2][0]
+            c_e = hyperparams_eig[(m % n_hpars)-2][1]
             acquisition_function = 'EI_DFT'
             color = sn.color_palette()[1]
             # Which data to fetch (if you only fetch and do not calculate new)?
@@ -218,21 +227,21 @@ def repeated_tests(m, starting_point_candidates):
 
             data_fusion_property = 'visual'
             df_data_coll_method = 'model_necessary_exclz'
-            c_grad = hyperparams_exclz[m-2-len(hyperparams_eig)][0]
-            c_e = hyperparams_exclz[m-2-len(hyperparams_eig)][1]
+            c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
+            c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
             acquisition_function = 'EI_DFT'
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
             color = sn.color_palette()[3]
 
-        
+        jitter = jitters[m // n_hpars]
         ###############
         # Typically, one does not need to modify these inputs.
         
         acq_fun_params = acq_param_builder(acquisition_function,
                                           data_fusion_property = data_fusion_property,
                                           data_fusion_input_variables = bo_params['materials'],
-                                          optional_acq_params = None)
+                                          optional_acq_params = {'jitter': jitter})
         acq_fun_descr = acq_fun_param2descr(acquisition_function, acq_fun_params = acq_fun_params)
         
         
@@ -306,7 +315,7 @@ def repeated_tests(m, starting_point_candidates):
                 else:
                     
                     ddcp = df_data_coll_params.copy()
-
+                
                 next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models = bo_sim_target(
                     bo_ground_truth_model_path = './Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222',
                     materials = bo_params['materials'], 
@@ -353,7 +362,7 @@ def repeated_tests(m, starting_point_candidates):
                     # Save the results as an backup
                     for j in range(len(pickle_variables)):
                         
-                        print('Saving variable ', pickle_filenames[j])
+                        #print('Saving variable ', pickle_filenames[j])
                         if i < bo_params['n_repetitions']:
                             
                             # Temporary filename for temp run safe-copies.
@@ -503,9 +512,9 @@ def repeated_tests(m, starting_point_candidates):
 if __name__ == "__main__":
     ###############################################################################
     
-    print(os.getcwd())
+    #print(os.getcwd())
     
-    m_total = 4
+    m_total = 12
     
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).
@@ -526,6 +535,7 @@ if __name__ == "__main__":
         repeated_tests(i, starting_point_candidates = starting_points)
         
     '''
+    
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:
         # apply work function in parallel

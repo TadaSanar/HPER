@@ -160,7 +160,7 @@ def ei_dft_param_builder(acquisition_type, data_fusion_target_property='dft',
                     data_fusion_data[i].append(pd.read_csv(files[i][j]))
 
                 data_fusion_data[i] = pd.concat(data_fusion_data[i])
-
+                
         ei_dft_params = {'df_data': data_fusion_data,
                          'df_target_var': variable,
                          'df_target_prop': data_fusion_target_property,
@@ -197,7 +197,15 @@ def acq_param_builder(acquisition_function, data_fusion_property=None,
 
             raise Exception(
                 'Data fusion has not been implemented for this acquisition function.')
-
+    
+    acq_fun_params['jitter'] = 0.01
+    
+    if optional_acq_params is not None:
+        
+        if 'jitter' in optional_acq_params:
+            
+            acq_fun_params['jitter'] = optional_acq_params['jitter']
+    
     return acq_fun_params
 
 
@@ -213,7 +221,13 @@ def acq_fun_param2descr(acq_fun, acq_fun_params=None):
                       '-variance-' + str(ei_dft_params['gp_variance']) +
                       '-beta-' + str(ei_dft_params['p_beta']) +
                       '-midpoint-' + str(ei_dft_params['p_midpoint']))
-
+        
+    if acq_fun_params is not None:
+        
+        if 'jitter' in acq_fun_params:
+            
+            output_str = output_str + '-jitter-' + str(acq_fun_params['jitter'])
+        
     return output_str
 
 
@@ -941,7 +955,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                                                             Y=Y_accum[k],
                                                             evaluator_type='local_penalization',
                                                             batch_size=batch_size,
-                                                            acquisition_jitter=jitter,
+                                                            acquisition_jitter=acq_fun_params['jitter'],
                                                             acq_fun_params=acq_fun_params,
                                                             noise_var = 0.1,
                                                             optimize_restarts = 10,

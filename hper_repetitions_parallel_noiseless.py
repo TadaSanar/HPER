@@ -173,7 +173,7 @@ def repeated_tests(m, starting_point_candidates):
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
     bo_params = {'n_repetitions': 50,
-                 'n_rounds': 75,
+                 'n_rounds': 20,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -185,7 +185,7 @@ def repeated_tests(m, starting_point_candidates):
     save_figs = False
     # Choose if noisy queries are being used or exact.
     noise_df= False
-    noise_target = True
+    noise_target = False
     
     if (m > -1):
 

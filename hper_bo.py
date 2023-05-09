@@ -182,7 +182,7 @@ def acq_param_builder(acquisition_function, data_fusion_property=None,
 
     if data_fusion_property is None:
 
-        acq_fun_params = None
+        acq_fun_params = {}
 
     else:
 

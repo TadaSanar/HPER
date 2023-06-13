@@ -668,8 +668,8 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                         # c_eig = 0 does not limit at all).
                         eig_max = - np.log10(1/2)
 
-                        print('Var_x_next and var_y: ', var_d_next[l,0], vary_d)
-                        print('EIG here: ', eig)
+                        #print('Var_x_next and var_y: ', var_d_next[l,0], vary_d)
+                        #print('EIG here: ', eig)
 
                         if eig < (eig_max * c_eig):
 
@@ -856,6 +856,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     lengthscales = [np.nan for j in range(rounds)]
     variances = [np.nan for j in range(rounds)]
     max_gradients = [np.nan for j in range(rounds)]
+    gaussian_noises = [np.nan for j in range(rounds)]
 
     ###
     # Variables related to data fusion.
@@ -957,7 +958,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                                                             batch_size=batch_size,
                                                             acquisition_jitter=acq_fun_params['jitter'],
                                                             acq_fun_params=acq_fun_params,
-                                                            noise_var = 0.1*Y_accum[k].var(),
+                                                            noise_var = 0.1*(Y_accum[k]/Y_accum[k].max()).var(), # GPyOpt assumes normalized Y data at the point when variance is defined.
                                                             optimize_restarts = 10,
                                                             max_iters = 10000,
                                                             exact_feval = (not noise_target)
@@ -975,6 +976,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
         variances[k] = BO_objects[k].model.model.kern.variance[0]
         gradients = BO_objects[k].model.model.predictive_gradients(x_next[k])[
             0][:, :, 0]
+        gaussian_noises[k] = BO_objects[k].model.model.Gaussian_noise.variance[0]
 
         # Maximum gradient element value to any direction of the search space
         # for each x_next point.
@@ -1035,16 +1037,22 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                    acq_fun_params['p_beta'], acq_fun_params['p_midpoint'],
                    limit_file_number=True, time_str=time_now,
                    results_folder=results_folder)
-
+        
         print('Results are saved into the given folder.')
 
         plt.figure()
         plt.plot(range(rounds), optimum)
         plt.show()
 
+    print('Gaussian noises in this run: ', gaussian_noises)
+    print('Lenghthscales in this run: ', lengthscales)
+    print('Variances in this run: ', variances) 
+    print('Max gradients in this run: ', max_gradients)
+
     surrogate_model_params = {'lengthscales': lengthscales,
                               'variances': variances,
-                              'max_gradients': max_gradients}
+                              'max_gradients': max_gradients,
+                              'gaussian_noises': gaussian_noises}
 
     if df_data_coll_params is not None:
 

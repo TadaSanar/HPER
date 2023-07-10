@@ -169,11 +169,11 @@ def repeated_tests(m, starting_point_candidates):
     n_j = len(jitters)
 
     
-    folder = './Results/20230609-noiselesstarget-noiselesshuman-final/'
+    folder = './Results/20230613-noiselesstarget-noiselesshuman-final/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
-    bo_params = {'n_repetitions': 50,
-                 'n_rounds': 100,
+    bo_params = {'n_repetitions': 10,
+                 'n_rounds': 15,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -535,6 +535,8 @@ if __name__ == "__main__":
         repeated_tests(i, starting_point_candidates = starting_points)
         
     '''
+    
+    print('Ncpus: ', ncpus)
     
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:

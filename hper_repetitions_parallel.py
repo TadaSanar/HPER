@@ -145,9 +145,9 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str = '_nreps'):
 def repeated_tests(m, starting_point_candidates):    
     
     
-    c_eig = [0, 0.1, 0.5, 0.75, 0.9, 1, 2] # Expected information gain.
+    c_eig = [0, 0.5, 0.75, 0.9, 1, 2] # Expected information gain.
     c_exclz = [1, 5, 10, 20] # Size of the exclusion zone in percentage points (max. 100)
-    c_g = list(cg(np.array([0.01, 0.1, 0.2, 0.5, 0.6, 0.8, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_g = list(cg(np.array([0.2, 0.5, 0.6, 0.8, 1]))) # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
     
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -169,7 +169,7 @@ def repeated_tests(m, starting_point_candidates):
     n_j = len(jitters)
 
     
-    folder = './Results/20230613-noisytarget-noiselesshuman-ho/'
+    folder = './Results/20230710-noisytarget-noisyhuman-ho/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
     
     bo_params = {'n_repetitions': 40,
@@ -184,7 +184,7 @@ def repeated_tests(m, starting_point_candidates):
     # Give False if you don't want to save the figures.
     save_figs = False
     # Choose if noisy queries are being used or exact.
-    noise_df= False
+    noise_df= True
     noise_target = True
     
     if (m > -1):
@@ -514,7 +514,7 @@ if __name__ == "__main__":
     
     #print(os.getcwd())
     
-    m_total = 158
+    m_total = 104
     
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

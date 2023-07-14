@@ -648,6 +648,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                                                 acq_fun_params['gp_variance'],
                                                 acq_fun_params['df_input_var'])
                     #data_fusion_models[j] = current_df_model
+                    print(current_df_model)
 
                     # Variance on each point x (pred. from the data fusion
                     # model).
@@ -656,9 +657,10 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
 
                     # Data fusion model y variance estimate.
                     vary_d = current_df_model.Gaussian_noise.variance[0]
+                    print('Data fusion Gaussian noise variance: ', vary_d)
 
                     index = 0
-                    for l in range(len(new_df_points_x_g)):  # Should be u finally!
+                    for l in range(len(new_df_points_x_g)):
 
                         eig = 0.5 * (np.log10(var_d_next[l, 0]/vary_d + 1))
                         c_eig = df_data_coll_params['c_eig']
@@ -960,7 +962,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                                                             acq_fun_params=acq_fun_params,
                                                             noise_var = 0.1*(Y_accum[k]/Y_accum[k].max()).var(), # GPyOpt assumes normalized Y data at the point when variance is defined.
                                                             optimize_restarts = 10,
-                                                            max_iters = 10000,
+                                                            max_iters = 2000,
                                                             exact_feval = (not noise_target)
                                                             )
 

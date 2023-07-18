@@ -189,7 +189,7 @@ def repeated_tests(m, starting_point_candidates):
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     # Choose if noisy queries are being used or exact.
     noise_df = True
     noise_target = True

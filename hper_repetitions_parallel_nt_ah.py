@@ -152,7 +152,7 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
 
 def repeated_tests(m, starting_point_candidates):
 
-    c_eig = [1, 0.8]  # Expected information gain.
+    c_eig = [1, 0.8, 1.2]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
     c_exclz = [10]
     # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
@@ -529,7 +529,7 @@ if __name__ == "__main__":
 
     # print(os.getcwd())
 
-    m_total = 5
+    m_total = 6
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

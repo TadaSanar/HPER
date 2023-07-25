@@ -176,7 +176,7 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230718-noiselesstarget-noiselesshuman-ho/'
+    folder = './Results/20230725-noiselesstarget-noiselesshuman-ho/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 25,

@@ -648,7 +648,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                                                 acq_fun_params['gp_variance'],
                                                 acq_fun_params['df_input_var'])
                     #data_fusion_models[j] = current_df_model
-                    print(current_df_model)
+                    #print(current_df_model)
 
                     # Variance on each point x (pred. from the data fusion
                     # model).

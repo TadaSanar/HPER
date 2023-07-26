@@ -35,7 +35,7 @@ def predict_points(GP_model, x_points, Y_data=None):
     return posterior_mean, posterior_var
 
 
-def predict_points_noisy(GP_model, x_points, Y_data=None):
+def predict_points_noisy(GP_model, x_points, Y_data=None, noise_proportion = 0.1):
 
     # Predictions.
     posterior_mean, posterior_var = predict_points(
@@ -43,7 +43,7 @@ def predict_points_noisy(GP_model, x_points, Y_data=None):
 
     # Adding Gaussian noise to the mean predictions.
     posterior_mean_noisy = np.random.normal(
-        posterior_mean, np.sqrt(posterior_var))
+        posterior_mean, np.sqrt(posterior_var)*noise_proportion)
 
     return posterior_mean_noisy, posterior_var, posterior_mean
 
@@ -374,57 +374,48 @@ def query_data_fusion_XZ_this_round(data_fusion_XZ_rounds, data_fusion_x_next,
                                     df_data_coll_params, acq_fun_params, k,
                                     data_fusion_gt_model, noise=False):
 
-    if df_data_coll_params['use_model'] == False:
+    # Data fusion data is generated using the ground truth
+    # model.
 
-        # Data would have already been added if there would have
-        # been any. Fill in an empty DataFrame.
+    if k == 0:
+
+        # Initialize to empty.
         data_fusion_XZ_rounds[k] = pd.DataFrame(
             columns=acq_fun_params['df_input_var'] +
             [acq_fun_params['df_target_var']])
+
     else:
 
-        # Data fusion data must be generated using the ground truth
-        # model.
+        # There may be point(s) suggested in the previous round
+        # that need to be evaluated.
 
-        if k == 0:
+        if data_fusion_x_next[k-1].empty is False:
 
-            # Initialize to empty.
+            # Note: There's no need to add train data to this GP model
+            # because it has not been trained with scaled Y data (unlike
+            # the C2a model).
+
+            # Predict.
+            if noise == False:
+
+                data_fusion_z_next = predict_points(
+                    data_fusion_gt_model, data_fusion_x_next[k-1].values)[0]
+            else:
+
+                data_fusion_z_next = predict_points_noisy(
+                    data_fusion_gt_model, data_fusion_x_next[k-1].values)[0]
+
+            # Add to the list.
+            data_fusion_XZ_rounds[k] = pd.DataFrame(
+                np.concatenate((data_fusion_x_next[k-1].values,
+                                data_fusion_z_next), axis=1),
+                columns=acq_fun_params['df_input_var'] +
+                [acq_fun_params['df_target_var']])
+        else:
+
             data_fusion_XZ_rounds[k] = pd.DataFrame(
                 columns=acq_fun_params['df_input_var'] +
                 [acq_fun_params['df_target_var']])
-
-        else:
-
-            # There may be point(s) suggested in the previous round
-            # that need to be evaluated.
-
-            if data_fusion_x_next[k-1].empty is False:
-
-                # Note: There's no need to add train data to this GP model
-                # because it has not been trained with scaled Y data (unlike
-                # the C2a model).
-
-                # Predict.
-                if noise == False:
-
-                    data_fusion_z_next = predict_points(
-                        data_fusion_gt_model, data_fusion_x_next[k-1].values)[0]
-                else:
-
-                    data_fusion_z_next = predict_points_noisy(
-                        data_fusion_gt_model, data_fusion_x_next[k-1].values)[0]
-
-                # Add to the list.
-                data_fusion_XZ_rounds[k] = pd.DataFrame(
-                    np.concatenate((data_fusion_x_next[k-1].values,
-                                    data_fusion_z_next), axis=1),
-                    columns=acq_fun_params['df_input_var'] +
-                    [acq_fun_params['df_target_var']])
-            else:
-
-                data_fusion_XZ_rounds[k] = pd.DataFrame(
-                    columns=acq_fun_params['df_input_var'] +
-                    [acq_fun_params['df_target_var']])
 
     return data_fusion_XZ_rounds
 
@@ -463,12 +454,8 @@ def query_target_data_from_model(k, X_rounds, Y_rounds, X_accum, Y_accum,
     if (k == 0):
 
         # Initialization with the given grid points.
-        #grid_init = np.array(init_points)
         X_rounds[k] = pd.DataFrame(init_points, columns=materials)
-
-        #compositions_input = [pd.DataFrame(grid_init, columns = materials)]
-        #degradation_input = []
-
+        
     else:
 
         # The locations suggested after the previous BO round will be
@@ -888,30 +875,45 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                 data_fusion_XZ_rounds[j] = acq_fun_params['df_data'][j].copy()
 
                 # Note that acq_fun_param[df_data] will be wiped multiple times
-                # during the BO loop. Data is not lost because it has already been
-                # saved into data_fusion_XZ_rounds.
+                # during the BO loop. Data is not lost because it has been
+                # saved into data_fusion_XZ_rounds here.
 
                 # Now, the first round has at minimum been initialized to empty
                 # DataFrames. There may still be 'None' slots in
-                # data_fusion_XZ_rounds. The will be removed in the BO loop.
+                # data_fusion_XZ_rounds.
+                
+            for k in range(rounds):
+                
+                if data_fusion_XZ_rounds[k] is None:
+                    
+                    # Data would have already been added in the previous loop
+                    # if there would have been any. Fill in an empty DataFrame.
+                    data_fusion_XZ_rounds[k] = pd.DataFrame(
+                        columns=acq_fun_params['df_input_var'] +
+                        [acq_fun_params['df_target_var']])
+                
 
     ###############################################################################
     # BEGIN BAYESIAN OPTIMIZATION
 
     for k in range(rounds):
 
-        if df_data_coll_params is not None:
+        if (function == True):
 
-            #print('Data fusion requests round ' +
-            #      str(k-1) + ':', data_fusion_x_next[k-1])
-            #print('Target requests round ' + str(k-1) + ':', x_next[k-1])
+            # Query target variable values from the provided ground truth model
+            # and update X_rounds, Y_rounds, X_accum, Y_accum in place.
+            X_rounds, Y_rounds, X_accum, Y_accum = query_target_data_from_model(
+                k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next,
+                stability_model, rounds, materials, noise = noise_target)
+            
+        if df_data_coll_params is not None:
 
             # Do data fusion.
             if data_fusion_XZ_rounds[k] is None:
 
                 # The data fusion data needs to be filled in. Works for
                 # simulated and experimental data.
-                data_fusion_XZ_rounds = query_data_fusion_XZ_this_round(
+                data_fusion_XZ_rounds = query_data_fusion_data_from_model_this_round(
                     data_fusion_XZ_rounds, data_fusion_x_next,
                     df_data_coll_params, acq_fun_params, k,
                     data_fusion_gt_model, noise = noise_df)
@@ -936,16 +938,6 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
             # TO DO: The experimental version of data fusion has not been
             # tested.
 
-        if (function == True):
-
-            # Query target variable values from the provided ground truth model
-            # and update X_rounds, Y_rounds, X_accum, Y_accum in place.
-            X_rounds, Y_rounds, X_accum, Y_accum = query_target_data_from_model(
-                k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next,
-                stability_model, rounds, materials, noise = noise_target)
-
-            #print('Target data round ' + str(k) + ':', X_accum[k], Y_accum[k])
-            
         # Define and fit BO object.
         # f=None because this code will be adapted in future for experimental
         # BO cycle.

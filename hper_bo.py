@@ -369,21 +369,41 @@ def load_ground_truth(path_model):
 
     return target_model
 
-
-def query_data_fusion_XZ_this_round(data_fusion_XZ_rounds, data_fusion_x_next,
-                                    df_data_coll_params, acq_fun_params, k,
-                                    data_fusion_gt_model, noise=False):
+def query_data_fusion_data_from_model(k, data_fusion_XZ_rounds, 
+                                      data_fusion_XZ_accum, init_points, 
+                                      data_fusion_x_next, data_fusion_gt_model, 
+                                      rounds, materials, 
+                                      acq_fun_params, noise = False):
 
     # Data fusion data is generated using the ground truth
     # model.
 
     if k == 0:
+        
+        # Sample the initial points given by the user.
+        
+        # Predict.
+        
+        # Note: There's no need to add train data to this GP model
+        # because it has not been trained with scaled Y data (unlike
+        # the target data model).
 
-        # Initialize to empty.
+        if noise == False:
+
+            data_fusion_z_next = predict_points(
+                data_fusion_gt_model, np.array(init_points))[0]
+        else:
+
+            data_fusion_z_next = predict_points_noisy(
+                data_fusion_gt_model, np.array(init_points))[0]
+
+        # Add to the list.
         data_fusion_XZ_rounds[k] = pd.DataFrame(
+            np.concatenate((init_points,
+                            data_fusion_z_next), axis=1),
             columns=acq_fun_params['df_input_var'] +
             [acq_fun_params['df_target_var']])
-
+        
     else:
 
         # There may be point(s) suggested in the previous round
@@ -392,8 +412,7 @@ def query_data_fusion_XZ_this_round(data_fusion_XZ_rounds, data_fusion_x_next,
         if data_fusion_x_next[k-1].empty is False:
 
             # Note: There's no need to add train data to this GP model
-            # because it has not been trained with scaled Y data (unlike
-            # the C2a model).
+            # (see above).
 
             # Predict.
             if noise == False:
@@ -416,8 +435,11 @@ def query_data_fusion_XZ_this_round(data_fusion_XZ_rounds, data_fusion_x_next,
             data_fusion_XZ_rounds[k] = pd.DataFrame(
                 columns=acq_fun_params['df_input_var'] +
                 [acq_fun_params['df_target_var']])
+            
+    data_fusion_XZ_accum = fill_accum_df_with_this_round(
+                data_fusion_XZ_accum, data_fusion_XZ_rounds, k)
 
-    return data_fusion_XZ_rounds
+    return data_fusion_XZ_rounds, data_fusion_XZ_accum
 
 
 def fill_accum_df_with_this_round(accum_df, rounds_df, k):
@@ -891,6 +913,11 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                     data_fusion_XZ_rounds[k] = pd.DataFrame(
                         columns=acq_fun_params['df_input_var'] +
                         [acq_fun_params['df_target_var']])
+                    
+                # TO DO: This part works but does unnecessary redefinitions.
+                # Clean up and test.
+                data_fusion_XZ_accum = fill_accum_df_with_this_round(
+                            data_fusion_XZ_accum, data_fusion_XZ_rounds, k)
                 
 
     ###############################################################################
@@ -906,41 +933,22 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                 k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next,
                 stability_model, rounds, materials, noise = noise_target)
             
-        if df_data_coll_params is not None:
-
-            # Do data fusion.
-            if data_fusion_XZ_rounds[k] is None:
-
-                # The data fusion data needs to be filled in. Works for
-                # simulated and experimental data.
-                data_fusion_XZ_rounds = query_data_fusion_data_from_model_this_round(
-                    data_fusion_XZ_rounds, data_fusion_x_next,
-                    df_data_coll_params, acq_fun_params, k,
-                    data_fusion_gt_model, noise = noise_df)
-                # TO DO: Add noise to the simulated prediction! Confirm proper
-                # scaling in GP once more. Divide the function so that
-                # experimental treatment is fully before BO loop  and simulated
-                # here (so that one does not have to feed in gt_model with
-                # experimental data).
-
-            # Fill in the accumulating variable (works as long as there are no
-            # None's in the round-wise variable which should be the case).
-            data_fusion_XZ_accum = fill_accum_df_with_this_round(
-                data_fusion_XZ_accum, data_fusion_XZ_rounds, k)
-
-            # Save the data fusion data for this round to the params that will
-            # be sent to the BO.
-            acq_fun_params['df_data'] = data_fusion_XZ_accum[k]
-
-            #print('Data fusion data round ' + str(k) +
-            #      ':', acq_fun_params['df_data'])
-
-            # TO DO: The experimental version of data fusion has not been
-            # tested.
-
+            if df_data_coll_params is not None:
+                
+                # Do data fusion.
+                
+                data_fusion_XZ_rounds, data_fusion_XZ_accum = query_data_fusion_data_from_model(
+                    k, data_fusion_XZ_rounds, data_fusion_XZ_accum, init_points,
+                    data_fusion_x_next, data_fusion_gt_model, rounds, materials, 
+                    acq_fun_params, noise = noise_df)
+            
+                # Save the data fusion data for this round to the params that will
+                # be sent to the BO.
+                acq_fun_params['df_data'] = data_fusion_XZ_accum[k]
+                
         # Define and fit BO object.
         # f=None because this code will be adapted in future for experimental
-        # BO cycle.
+        # BO cycles.
         BO_objects[k] = GPyOpt.methods.BayesianOptimization(f=None,
                                                             domain=bounds,
                                                             constraints=constraints[k],

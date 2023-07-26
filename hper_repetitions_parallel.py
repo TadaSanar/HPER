@@ -176,11 +176,11 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230718-noisytarget-noisyhuman/'
+    folder = './Results/Tests/Noise10/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 50,
-                 'n_rounds': 100,
+    bo_params = {'n_repetitions': 1,
+                 'n_rounds': 5,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -189,12 +189,12 @@ def repeated_tests(m, starting_point_candidates):
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     # Choose if noisy queries are being used or exact.
     noise_df = True
     noise_target = True
 
-    if (m > -1):
+    if (m > 1):
 
         if (m % n_hpars) == 0:
 
@@ -529,7 +529,7 @@ if __name__ == "__main__":
 
     # print(os.getcwd())
 
-    m_total = 8
+    m_total = 4
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).
@@ -545,10 +545,9 @@ if __name__ == "__main__":
     except KeyError:
         ncpus = mp.cpu_count()
 
-    '''
-    for i in range(m_total):
+    #for i in range(m_total):
         
-        repeated_tests(i, starting_point_candidates = starting_points)
+        repeated_tests(2, starting_point_candidates = starting_points)
         
     '''
 
@@ -561,3 +560,4 @@ if __name__ == "__main__":
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
+    '''

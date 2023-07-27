@@ -35,7 +35,7 @@ def predict_points(GP_model, x_points, Y_data=None):
     return posterior_mean, posterior_var
 
 
-def predict_points_noisy(GP_model, x_points, Y_data=None, noise_proportion = 0.1):
+def predict_points_noisy(GP_model, x_points, Y_data=None, noise_proportion = 1):
 
     # Predictions.
     posterior_mean, posterior_var = predict_points(

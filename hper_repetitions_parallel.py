@@ -152,7 +152,7 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
 
 def repeated_tests(m, starting_point_candidates):
 
-    c_eig = [1]  # Expected information gain.
+    c_eig = [0.8]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
     c_exclz = [10]
     # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
@@ -176,11 +176,11 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/Tests/Noise10/'
+    folder = './Results/Tests/Noise100/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 1,
-                 'n_rounds': 5,
+    bo_params = {'n_repetitions': 5,
+                 'n_rounds': 25,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -189,12 +189,12 @@ def repeated_tests(m, starting_point_candidates):
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = True
+    save_figs = False
     # Choose if noisy queries are being used or exact.
     noise_df = True
     noise_target = True
 
-    if (m > 1):
+    if (m > -1):
 
         if (m % n_hpars) == 0:
 
@@ -545,12 +545,8 @@ if __name__ == "__main__":
     except KeyError:
         ncpus = mp.cpu_count()
 
-    #for i in range(m_total):
+    #repeated_tests(2, starting_point_candidates = starting_points)
         
-        repeated_tests(2, starting_point_candidates = starting_points)
-        
-    '''
-
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:
         # apply work function in parallel
@@ -560,4 +556,4 @@ if __name__ == "__main__":
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
-    '''
+    

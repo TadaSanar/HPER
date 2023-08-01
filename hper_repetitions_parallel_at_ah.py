@@ -176,7 +176,7 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230728-noiselesstarget-noiselesshuman/'
+    folder = './Results/20230801-noiselesstarget-noiselesshuman/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 50,
@@ -529,7 +529,7 @@ if __name__ == "__main__":
 
     # print(os.getcwd())
 
-    m_total = 4
+    m_total = 20
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

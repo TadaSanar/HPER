@@ -13,6 +13,7 @@ import datetime
 import matplotlib.pyplot as plt
 from plotting_v2 import plotBO
 from plotting_data_fusion import plotDF
+import logging
 
 
 def predict_points(GP_model, x_points, Y_data=None):
@@ -573,9 +574,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
           (df_data_coll_params['method'] == 'eig')):
 
         # Gradient criterion.
-
-        #print('Checking gradient criterion.')
-
+        
         # Constant for the gradient limit.
         c_grad = df_data_coll_params['c_grad']
 
@@ -593,12 +592,6 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
         # Pick new points for which the surrogate model has a high gradient, no
         # matter if there is an earlier data fusion point nearby.
         new_df_points_x_g = x_next[k][grad_max_s_next > gradient_limit]
-        
-        #print('\nGradients of points surviving gradient limit:\n', 
-        #      grad_max_s_next[grad_max_s_next > gradient_limit])
-        
-        #print('\nGradients of points not surviving gradient limit:\n', 
-        #      grad_max_s_next[grad_max_s_next < gradient_limit])
         
         # THIS OPTION IS NOT IN USE.
         # Pick new points for which the surrogate model does not have
@@ -633,7 +626,8 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                             new_df_points_x_g = np.delete(new_df_points_x_g,
                                                           index, axis=0)
                             # TO DO: Test if index works correctly when batch BO is used!
-                            print('Deleted a point based on r exclusion.')
+                            message = 'Deleted a point based on r exclusion.'
+                            logging.info(message)
 
                         else:
 
@@ -644,9 +638,6 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                 # If the data fusion model exists already.
                 if data_fusion_XZ_accum[k].shape[0] > 0:
 
-                    # print('Points that passed the gradient criterion:\n',
-                    #      new_df_points_x_g)
-
                     # Drop points if the expected information gain for the
                     # human opinion model is too low.
 
@@ -656,9 +647,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                                                 acq_fun_params['gp_lengthscale'],
                                                 acq_fun_params['gp_variance'],
                                                 acq_fun_params['df_input_var'])
-                    #data_fusion_models[j] = current_df_model
-                    #print(current_df_model)
-
+                    
                     # Variance on each point x (pred. from the data fusion
                     # model).
                     var_d_next = predict_points(
@@ -666,7 +655,8 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
 
                     # Data fusion model y variance estimate.
                     vary_d = current_df_model.Gaussian_noise.variance[0]
-                    print('Data fusion Gaussian noise variance: ', vary_d)
+                    message = 'Data fusion Gaussian noise variance: ' + str(vary_d)
+                    logging.debug(message)
 
                     index = 0
                     for l in range(len(new_df_points_x_g)):
@@ -679,14 +669,12 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                         # c_eig = 0 does not limit at all).
                         eig_max = - np.log10(1/2)
 
-                        #print('Var_x_next and var_y: ', var_d_next[l,0], vary_d)
-                        #print('EIG here: ', eig)
-
                         if eig < (eig_max * c_eig):
 
                             new_df_points_x_g = np.delete(
                                 new_df_points_x_g, index, axis=0)
-                            print('Deleted a point based on EIG.')
+                            message = 'Deleted a point based on EIG.'
+                            logging.debug(message)
 
                         else:
 
@@ -701,8 +689,6 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
 
             result = pd.DataFrame(new_df_points_x,
                                   columns=acq_fun_params['df_input_var'])
-
-            #print('Round ' + str(k) + ': ', result)
 
             if df_data_coll_params['use_model'] == False:
 
@@ -800,9 +786,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
             acq_fun_params['df_data'] = [pd.DataFrame(columns=acq_fun_params['df_input_var'] +
                                                       [acq_fun_params['df_target_var']
                                                        ])]
-
-            #print("Data fusion model created.")
-
+            
         if acq_fun_params['df_data'] is None:
 
             # Initialize to empty.
@@ -1001,8 +985,9 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     ###########################################################################
     # DATA TREATMENT, PLOTTING, SAVING
 
-    #print('Last suggestions for the next sampling points: ', x_next[-1])
-
+    message = 'Last suggestions for the next sampling points: ' + str(x_next[-1])
+    logging.info(message)
+    
     # Save the model as an backup
     # dbfile = open('Backup-model-{date:%Y%m%d%H%M%S}'.format(date=datetime.datetime.now()), 'ab')
     # pickle.dump([BO_batch, x_next_df, x_next, X_rounds, Y_rounds], dbfile)
@@ -1040,16 +1025,19 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                    limit_file_number=True, time_str=time_now,
                    results_folder=results_folder)
         
-        print('Results are saved into the given folder.')
+        message = 'Results are saved into the given folder.'
+        logging.info(message)
 
         plt.figure()
         plt.plot(range(rounds), optimum)
         plt.show()
 
-    print('Gaussian noises in this run: ', gaussian_noises)
-    print('Lenghthscales in this run: ', lengthscales)
-    print('Variances in this run: ', variances) 
-    print('Max gradients in this run: ', max_gradients)
+    message = ('Gaussian noises in this run: ' + str(gaussian_noises) + '\n' +
+               'Lenghthscales in this run: ' + str(lengthscales) + '\n' +
+               'Variances in this run: ' + str(variances)  + '\n' +
+               'Max gradients in this run: ' + str(max_gradients) + '\n' +
+               'Results are saved into the given folder.')
+    logging.info(message)
 
     surrogate_model_params = {'lengthscales': lengthscales,
                               'variances': variances,

@@ -24,6 +24,8 @@ from tqdm.contrib.concurrent import process_map
 import tqdm
 import time
 
+import logging
+
 from functools import partial
 
 # %load_ext autoreload
@@ -65,9 +67,6 @@ def create_ternary_starting_points(n_reps=200, n_init=20):
     for i in range(n_reps):
 
         all_starting_points.append(ternary_rand_vector(n_init))
-
-        # print('\n\nInit points repetition ' + str(i) + ':\n' +
-        #   str(all_starting_points[i]))
 
     return all_starting_points
 
@@ -152,11 +151,11 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
 
 def repeated_tests(m, starting_point_candidates):
 
-    c_eig = [0.8]  # Expected information gain.
+    c_eig = [1,2]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [10]
+    c_exclz = [10,20]
     # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.8])))
+    c_g = list(cg(np.array([0.8, 0.6])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -169,18 +168,18 @@ def repeated_tests(m, starting_point_candidates):
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.1]
+    jitters = [0.01, 0.1]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/Tests/Noise100/'
+    folder = './Results/Temp/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 5,
-                 'n_rounds': 25,
+    bo_params = {'n_repetitions': 3,
+                 'n_rounds': 10,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -191,9 +190,9 @@ def repeated_tests(m, starting_point_candidates):
     # Give False if you don't want to save the figures.
     save_figs = False
     # Choose if noisy queries are being used or exact.
-    noise_df = True
-    noise_target = True
-
+    noise_df = False
+    noise_target = False
+    
     if (m > -1):
 
         if (m % n_hpars) == 0:
@@ -273,7 +272,11 @@ def repeated_tests(m, starting_point_candidates):
         pickle_filenames, figure_filenames, triangle_folder = build_filenames(
             folder, bo_params, acq_fun_descr, df_data_coll_descr,
             fetch_file_date=fetch_file_date, m=m)
-
+        
+        # Define log message file.
+        logging.basicConfig(filename= folder + 'log.txt', 
+                            level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+        
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
 
@@ -291,16 +294,15 @@ def repeated_tests(m, starting_point_candidates):
 
         if fetch_old_results == False:
 
-            # print(i, bo_params['materials'], bo_params['n_rounds'],
-            #      bo_params['batch_size'], acquisition_function)
-
             for i in range(bo_params['n_repetitions']):
 
                 all_starting_points.append(
                     starting_point_candidates[i][0:bo_params['n_init']])
 
-                print('\n\nInit points method ' + str(m) + ',  repetition ' + str(i) + ':\n' +
+                message = ('\n\nInit points method ' + str(m) + 
+                             ',  repetition ' + str(i) + ':\n' +
                       str(all_starting_points[i]))
+                logging.info(message)
 
             for i in range(bo_params['n_repetitions']):
 
@@ -356,8 +358,10 @@ def repeated_tests(m, starting_point_candidates):
                 variances_all.append(surrogate_model_params['variances'])
                 max_gradients_all.append(
                     surrogate_model_params['max_gradients'])
-
-                print('Method ' + str(m) + ', repetition ' + str(i))
+                
+                message = 'Method ' + str(m) + ', repetition ' + str(i)
+                print(message)
+                logging.info(message)
 
                 # Save results after all repetitions have been done but also two
                 # times in between if the total number of repetitions is large.
@@ -374,7 +378,6 @@ def repeated_tests(m, starting_point_candidates):
                     # Save the results as an backup
                     for j in range(len(pickle_variables)):
 
-                        #print('Saving variable ', pickle_filenames[j])
                         if i < bo_params['n_repetitions']:
 
                             # Temporary filename for temp run safe-copies.
@@ -452,8 +455,7 @@ def repeated_tests(m, starting_point_candidates):
                 regret = np.sqrt(np.sum((ground_truth - X_optimum)**2))
                 regrets[i][j] = regret
 
-            #print(regret, X_optimum)
-
+            
         cols = ['Regret' +
                 x for x in list(map(str, range(bo_params['n_rounds'])))]
         df_regrets_wide = pd.DataFrame(
@@ -527,9 +529,7 @@ def repeated_tests(m, starting_point_candidates):
 if __name__ == "__main__":
     ###############################################################################
 
-    # print(os.getcwd())
-
-    m_total = 4
+    m_total = 20
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).
@@ -545,8 +545,13 @@ if __name__ == "__main__":
     except KeyError:
         ncpus = mp.cpu_count()
 
-    #repeated_tests(2, starting_point_candidates = starting_points)
+    '''
+    for i in range(m_total):
         
+        repeated_tests(i, starting_point_candidates = starting_points)
+        
+    '''
+
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:
         # apply work function in parallel
@@ -556,4 +561,3 @@ if __name__ == "__main__":
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
-    

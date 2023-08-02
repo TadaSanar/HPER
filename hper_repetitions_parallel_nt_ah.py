@@ -275,7 +275,7 @@ def repeated_tests(m, starting_point_candidates):
         
         # Define log message file.
         logging.basicConfig(filename= folder + 'log.txt', 
-                            level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+                            level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
         
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')

@@ -656,7 +656,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                     # Data fusion model y variance estimate.
                     vary_d = current_df_model.Gaussian_noise.variance[0]
                     message = 'Data fusion Gaussian noise variance: ' + str(vary_d)
-                    logging.log(11, message)
+                    logging.log(21, message)
 
                     index = 0
                     for l in range(len(new_df_points_x_g)):
@@ -674,7 +674,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                             new_df_points_x_g = np.delete(
                                 new_df_points_x_g, index, axis=0)
                             message = 'Deleted a point based on EIG.'
-                            logging.log(11, message)
+                            logging.log(21, message)
 
                         else:
 

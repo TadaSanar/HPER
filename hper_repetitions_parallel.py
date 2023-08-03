@@ -193,7 +193,7 @@ def repeated_tests(m, starting_point_candidates):
     noise_df = False
     noise_target = False
     
-    log_progress = True
+    log_progress = False
     
     if (m > -1):
 
@@ -276,10 +276,10 @@ def repeated_tests(m, starting_point_candidates):
             fetch_file_date=fetch_file_date, m=m)
         
         # Define log message file.
-        # Level DEBUG corresponds to 10, and we don't want GPyOpt debug
-        # messages on DEBUG level (there are way too many of them).
+        # Level INFO corresponds to 21, and we don't want GPyOpt debug
+        # messages on INFO level (there are way too many of them).
         logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
-                            level=11, format='%(asctime)s - %(levelname)s - %(message)s')
+                            level=21, format='%(asctime)s - %(levelname)s - %(message)s')
         
         if log_progress is False:
             

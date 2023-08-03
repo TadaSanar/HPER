@@ -175,11 +175,11 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230801-noisytarget-noiselesshuman/'
+    folder = './Results/20230803-noisytarget-noiselesshuman-short/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 50,
-                 'n_rounds': 200,
+                 'n_rounds': 25,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -192,6 +192,8 @@ def repeated_tests(m, starting_point_candidates):
     # Choose if noisy queries are being used or exact.
     noise_df = False
     noise_target = True
+    
+    log_progress = True
     
     if (m > -1):
 
@@ -274,8 +276,14 @@ def repeated_tests(m, starting_point_candidates):
             fetch_file_date=fetch_file_date, m=m)
         
         # Define log message file.
-        logging.basicConfig(filename= folder + 'log.txt', 
-                            level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+        # Level DEBUG corresponds to 10, and we don't want GPyOpt debug
+        # messages on DEBUG level (there are way too many of them).
+        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+                            level=11, format='%(asctime)s - %(levelname)s - %(message)s')
+        
+        if log_progress is False:
+            
+            logging.disable(logging.CRITICAL)
         
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')

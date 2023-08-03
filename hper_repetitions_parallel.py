@@ -151,11 +151,11 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
 
 def repeated_tests(m, starting_point_candidates):
 
-    c_eig = [1,2]  # Expected information gain.
+    c_eig = [1]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [10,20]
+    c_exclz = [10]
     # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.8, 0.6])))
+    c_g = list(cg(np.array([0.8])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -178,8 +178,8 @@ def repeated_tests(m, starting_point_candidates):
     folder = './Results/Temp/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 3,
-                 'n_rounds': 10,
+    bo_params = {'n_repetitions': 1,
+                 'n_rounds': 5,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -192,6 +192,8 @@ def repeated_tests(m, starting_point_candidates):
     # Choose if noisy queries are being used or exact.
     noise_df = False
     noise_target = False
+    
+    log_progress = True
     
     if (m > -1):
 
@@ -274,8 +276,14 @@ def repeated_tests(m, starting_point_candidates):
             fetch_file_date=fetch_file_date, m=m)
         
         # Define log message file.
-        logging.basicConfig(filename= folder + 'log.txt', 
-                            level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+        # Level DEBUG corresponds to 10, and we don't want GPyOpt debug
+        # messages on DEBUG level (there are way too many of them).
+        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+                            level=11, format='%(asctime)s - %(levelname)s - %(message)s')
+        
+        if log_progress is False:
+            
+            logging.disable(logging.CRITICAL)
         
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
@@ -529,7 +537,7 @@ def repeated_tests(m, starting_point_candidates):
 if __name__ == "__main__":
     ###############################################################################
 
-    m_total = 20
+    m_total = 8
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).
@@ -549,9 +557,8 @@ if __name__ == "__main__":
     for i in range(m_total):
         
         repeated_tests(i, starting_point_candidates = starting_points)
-        
     '''
-
+        
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:
         # apply work function in parallel
@@ -561,3 +568,4 @@ if __name__ == "__main__":
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
+    

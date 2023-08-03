@@ -739,7 +739,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
 
     ###########################################################################
     # HARD-CODED SETTINGS (CONSIDER TURNING INTO FUNCTION PARAMS)
-
+    
     # The sum of the amount of each material will be
     composition_total = [0.995, 1]
     # limited between these values. If you need everything to sum up to 100% within

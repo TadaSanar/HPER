@@ -153,7 +153,7 @@ def repeated_tests(m, starting_point_candidates):
 
     c_eig = [1]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [10]
+    c_exclz = []
     # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
     c_g = list(cg(np.array([0.8])))
 
@@ -168,7 +168,7 @@ def repeated_tests(m, starting_point_candidates):
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.01, 0.1]
+    jitters = [0.01]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
@@ -179,7 +179,7 @@ def repeated_tests(m, starting_point_candidates):
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 1,
-                 'n_rounds': 5,
+                 'n_rounds': 25,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -193,7 +193,7 @@ def repeated_tests(m, starting_point_candidates):
     noise_df = False
     noise_target = False
     
-    log_progress = False
+    log_progress = True
     
     if (m > -1):
 
@@ -284,6 +284,7 @@ def repeated_tests(m, starting_point_candidates):
         if log_progress is False:
             
             logging.disable(logging.CRITICAL)
+        
         
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
@@ -537,7 +538,7 @@ def repeated_tests(m, starting_point_candidates):
 if __name__ == "__main__":
     ###############################################################################
 
-    m_total = 8
+    m_total = 3
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

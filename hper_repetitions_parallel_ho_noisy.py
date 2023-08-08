@@ -24,6 +24,8 @@ from tqdm.contrib.concurrent import process_map
 import tqdm
 import time
 
+import logging
+
 from functools import partial
 
 # %load_ext autoreload
@@ -65,9 +67,6 @@ def create_ternary_starting_points(n_reps=200, n_init=20):
     for i in range(n_reps):
 
         all_starting_points.append(ternary_rand_vector(n_init))
-
-        # print('\n\nInit points repetition ' + str(i) + ':\n' +
-        #   str(all_starting_points[i]))
 
     return all_starting_points
 
@@ -176,11 +175,11 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230727-noisytarget-noisyhuman-ho/'
+    folder = './Results/20230808-noisytarget-noisyhuman-ho/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 10,
-                 'n_rounds': 30,
+    bo_params = {'n_repetitions': 20,
+                 'n_rounds': 100,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -193,7 +192,9 @@ def repeated_tests(m, starting_point_candidates):
     # Choose if noisy queries are being used or exact.
     noise_df = True
     noise_target = True
-
+    
+    log_progress = False
+    
     if (m > -1):
 
         if (m % n_hpars) == 0:
@@ -273,7 +274,17 @@ def repeated_tests(m, starting_point_candidates):
         pickle_filenames, figure_filenames, triangle_folder = build_filenames(
             folder, bo_params, acq_fun_descr, df_data_coll_descr,
             fetch_file_date=fetch_file_date, m=m)
-
+        
+        # Define log message file.
+        # Level INFO corresponds to 21, and we don't want GPyOpt debug
+        # messages on INFO level (there are way too many of them).
+        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+                            level=21, format='%(asctime)s - %(levelname)s - %(message)s')
+        
+        if log_progress is False:
+            
+            logging.disable(logging.CRITICAL)
+        
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
 
@@ -291,16 +302,15 @@ def repeated_tests(m, starting_point_candidates):
 
         if fetch_old_results == False:
 
-            # print(i, bo_params['materials'], bo_params['n_rounds'],
-            #      bo_params['batch_size'], acquisition_function)
-
             for i in range(bo_params['n_repetitions']):
 
                 all_starting_points.append(
                     starting_point_candidates[i][0:bo_params['n_init']])
 
-                print('\n\nInit points method ' + str(m) + ',  repetition ' + str(i) + ':\n' +
+                message = ('\n\nInit points method ' + str(m) + 
+                             ',  repetition ' + str(i) + ':\n' +
                       str(all_starting_points[i]))
+                logging.info(message)
 
             for i in range(bo_params['n_repetitions']):
 
@@ -356,8 +366,10 @@ def repeated_tests(m, starting_point_candidates):
                 variances_all.append(surrogate_model_params['variances'])
                 max_gradients_all.append(
                     surrogate_model_params['max_gradients'])
-
-                print('Method ' + str(m) + ', repetition ' + str(i))
+                
+                message = 'Method ' + str(m) + ', repetition ' + str(i)
+                print(message)
+                logging.info(message)
 
                 # Save results after all repetitions have been done but also two
                 # times in between if the total number of repetitions is large.
@@ -374,7 +386,6 @@ def repeated_tests(m, starting_point_candidates):
                     # Save the results as an backup
                     for j in range(len(pickle_variables)):
 
-                        #print('Saving variable ', pickle_filenames[j])
                         if i < bo_params['n_repetitions']:
 
                             # Temporary filename for temp run safe-copies.
@@ -452,8 +463,7 @@ def repeated_tests(m, starting_point_candidates):
                 regret = np.sqrt(np.sum((ground_truth - X_optimum)**2))
                 regrets[i][j] = regret
 
-            #print(regret, X_optimum)
-
+            
         cols = ['Regret' +
                 x for x in list(map(str, range(bo_params['n_rounds'])))]
         df_regrets_wide = pd.DataFrame(
@@ -526,8 +536,6 @@ def repeated_tests(m, starting_point_candidates):
 
 if __name__ == "__main__":
     ###############################################################################
-
-    # print(os.getcwd())
 
     m_total = 104
 

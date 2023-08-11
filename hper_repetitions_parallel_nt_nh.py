@@ -364,7 +364,7 @@ def repeated_tests(m, starting_point_candidates):
                     ddcp = df_data_coll_params.copy()
 
                 next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models = bo_sim_target(
-                    bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222',
+                    bo_ground_truth_model_path='./Source_data/stability_model_GPyHomoscedastic',
                     materials=bo_params['materials'],
                     rounds=bo_params['n_rounds'],
                     init_points=all_starting_points[i],

@@ -179,7 +179,7 @@ def repeated_tests(m, starting_point_candidates):
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 1,
-                 'n_rounds': 25,
+                 'n_rounds': 5,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -188,10 +188,10 @@ def repeated_tests(m, starting_point_candidates):
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     # Choose if noisy queries are being used or exact.
-    noise_df = False
-    noise_target = False
+    noise_df = True
+    noise_target = True
     
     log_progress = True
     
@@ -278,8 +278,34 @@ def repeated_tests(m, starting_point_candidates):
         # Define log message file.
         # Level INFO corresponds to 21, and we don't want GPyOpt debug
         # messages on INFO level (there are way too many of them).
-        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
-                            level=21, format='%(asctime)s - %(levelname)s - %(message)s')
+        
+        # create logger
+        logger = logging.getLogger('SpyderKernelApp')
+        logger.setLevel(logging.WARNING)
+        
+        logger = logging.getLogger(__name__)
+        logger.setLevel(21)
+        
+        # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        
+        
+        # create file handler and set level to debug
+        ch = logging.FileHandler(triangle_folder[0:-1] + '_log.txt')
+        ch.setLevel(21)
+        
+        # create formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # add formatter to ch
+        ch.setFormatter(formatter)
+        
+        # add ch to logger
+        logger.addHandler(ch)
+        
+        logger.info("Starting")
+                
+        #logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+        #                    level=21, format='%(asctime)s - %(levelname)s - %(message)s')
         
         if log_progress is False:
             
@@ -338,7 +364,7 @@ def repeated_tests(m, starting_point_candidates):
                     ddcp = df_data_coll_params.copy()
 
                 next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models = bo_sim_target(
-                    bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222',
+                    bo_ground_truth_model_path='./Source_data/stability_model_GPyHomoscedastic', #'./Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222',
                     materials=bo_params['materials'],
                     rounds=bo_params['n_rounds'],
                     init_points=all_starting_points[i],
@@ -554,7 +580,6 @@ if __name__ == "__main__":
     except KeyError:
         ncpus = mp.cpu_count()
 
-    '''
     for i in range(m_total):
         
         repeated_tests(i, starting_point_candidates = starting_points)
@@ -569,4 +594,4 @@ if __name__ == "__main__":
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
-    
+    '''

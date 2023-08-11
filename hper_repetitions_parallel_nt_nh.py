@@ -278,12 +278,39 @@ def repeated_tests(m, starting_point_candidates):
         # Define log message file.
         # Level INFO corresponds to 21, and we don't want GPyOpt debug
         # messages on INFO level (there are way too many of them).
-        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
-                            level=21, format='%(asctime)s - %(levelname)s - %(message)s')
+        
+        # create logger
+        logger = logging.getLogger('SpyderKernelApp')
+        logger.setLevel(logging.WARNING)
+        
+        logger = logging.getLogger(__name__)
+        logger.setLevel(21)
+        
+        # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        
+        
+        # create file handler and set level to debug
+        ch = logging.FileHandler(triangle_folder[0:-1] + '_log.txt')
+        ch.setLevel(21)
+        
+        # create formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # add formatter to ch
+        ch.setFormatter(formatter)
+        
+        # add ch to logger
+        logger.addHandler(ch)
+        
+        logger.info("Starting")
+                
+        #logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+        #                    level=21, format='%(asctime)s - %(levelname)s - %(message)s')
         
         if log_progress is False:
             
             logging.disable(logging.CRITICAL)
+        
         
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')

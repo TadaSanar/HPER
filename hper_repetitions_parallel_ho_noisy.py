@@ -24,7 +24,7 @@ from tqdm.contrib.concurrent import process_map
 import tqdm
 import time
 
-import logging
+#import logging
 
 from functools import partial
 
@@ -278,7 +278,7 @@ def repeated_tests(m, starting_point_candidates):
         # Define log message file.
         # Level INFO corresponds to 21, and we don't want GPyOpt debug
         # messages on INFO level (there are way too many of them).
-        
+        '''
         # create logger
         logger = logging.getLogger('SpyderKernelApp')
         logger.setLevel(logging.WARNING)
@@ -310,7 +310,7 @@ def repeated_tests(m, starting_point_candidates):
         if log_progress is False:
             
             logging.disable(logging.CRITICAL)
-        
+        '''
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
 

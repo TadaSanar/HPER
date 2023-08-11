@@ -67,7 +67,7 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         #      'step', step)
         
         surf_levels = np.arange(minvalue, maxvalue + step, step)
-        
+        #tick_vals = np.arange(norm.vmin, norm.vmax + step, (norm.vmin-norm.vmax)/5)
         # Every 5th surf level will have a tick mark so they need to be fixed
         # to a two digit value.
         tick_idx = np.arange(1,nlevels+1,5)
@@ -83,6 +83,13 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
                                                   -int(np.floor(np.log10(norm.vmax))-n_sign_digits))
             surf_levels[tick_idx[-1]] = np.round(surf_levels[tick_idx[-1]], 
                                                   -int(np.ceil(np.log10(norm.vmax))-n_sign_digits-1))
+            #tick_vals = surf_levels[tick_idx].copy()
+            #tick_vals = np.round(tick_vals, -int(np.floor(np.log10(norm.vmax))-n_sign_digits))
+            #tick_vals[-1] = norm.vmin
+            #tick_vals[0] = norm.vmax
+            #tick_vals[-1] = np.round(tick_vals[-1], -int(np.ceil(np.log10(norm.vmax))-n_sign_digits-1))
+            #tick_vals[0] = np.round(tick_vals[0], -int(np.floor(np.log10(-1.5))-n_sign_digits-1))
+            
             
         elif norm.vmax != 0:
             
@@ -108,10 +115,13 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
     
     myformatter=matplotlib.ticker.ScalarFormatter()
     myformatter.set_powerlimits((0,2))
-    if cbar_spacing is not None:
+    if (cbar_spacing is not None) and (cbar_ticks is not None):
         cbar=plt.colorbar(im, ax=ax, spacing=cbar_spacing, ticks=cbar_ticks)
+    elif cbar_ticks is not None:
+        cbar=plt.colorbar(im, ax=ax, ticks=cbar_ticks)
     else:
         cbar=plt.colorbar(im, ax=ax, format=myformatter, spacing=surf_levels, ticks=surf_levels[tick_idx])
+        
     cbar.ax.tick_params(labelsize=8)
     cbar.set_label(cbar_label, fontsize=8)#, labelpad = -0.5)
     plt.axis('off')
@@ -341,12 +351,13 @@ def define_norm_for_surf_plot(target, color_lims = None):
     return norm
     
 def plot_surf_with_lims_and_name(points, target, color_lims, cmap, cbar_label,
-                                     saveas):
+                                     saveas, cbar_ticks = None):
     
     norm = define_norm_for_surf_plot(target, color_lims = color_lims)
     
     triangleplot(points, target, norm, cmap = cmap,
-                 cbar_label = cbar_label, saveas = saveas)
+                 cbar_label = cbar_label, saveas = saveas,  
+                 cbar_ticks = cbar_ticks)
 
     
 def plot_mean_only(points, mean, color_lims = None, cmap = 'RdBu_r',
@@ -357,11 +368,13 @@ def plot_mean_only(points, mean, color_lims = None, cmap = 'RdBu_r',
                                      cbar_label = cbar_label, saveas = saveas)
 
 def plot_std_only(points, std, color_lims = None, cmap = 'RdBu_r',
-                   cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)', saveas = None):
+                   cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)', 
+                   saveas = None,  cbar_ticks = None):
                 
     plot_surf_with_lims_and_name(points, std,
                                      color_lims = color_lims, cmap = cmap,
-                                     cbar_label = cbar_label, saveas = saveas)
+                                     cbar_label = cbar_label, saveas = saveas,  
+                                     cbar_ticks = cbar_ticks)
 
 def init_acq_plot(points, acq, cmap_base):
 
@@ -469,7 +482,8 @@ def plot_acq_and_data(points, acq, data, color_lims = None, cmap_base = 'RdBu',
                  cbar_ticks = plot_params['cbar_ticks'])
     
 def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = 'RdBu_r',
-                   cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = None):
+                   cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = None,
+                   cbar_ticks = None):
                 
     # Let's not use the convenience function 'plot_surf_with_lims_and_name'
     # because we change so many parts. Repeat its functionality, instead.
@@ -481,7 +495,8 @@ def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = '
                  cbar_label = cbar_label, 
                  saveas = saveas,
                  scatter_points = data_x, scatter_color = np.ravel(data_y),
-                 cbar_spacing = None, cbar_ticks = None)
+                 #cbar_spacing = None, cbar_ticks = cbar_ticks)
+                 cbar_ticks = cbar_ticks)
 
 def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
            BO_objects, materials, X_rounds, Y_rounds, Y_accum, X_accum, x_next,

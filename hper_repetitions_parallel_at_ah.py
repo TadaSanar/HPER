@@ -151,11 +151,11 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
 
 def repeated_tests(m, starting_point_candidates):
 
-    c_eig = [1,2]  # Expected information gain.
+    c_eig = [1]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [10,20]
+    c_exclz = [20]
     # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.8, 0.6])))
+    c_g = list(cg(np.array([0.8])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -168,14 +168,14 @@ def repeated_tests(m, starting_point_candidates):
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.01, 0.1]
+    jitters = [0.01]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230803-noiselesstarget-noiselesshuman/'
+    folder = './Results/20230810-noiselesstarget-noiselesshuman-final/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 50,
@@ -538,7 +538,7 @@ def repeated_tests(m, starting_point_candidates):
 if __name__ == "__main__":
     ###############################################################################
 
-    m_total = 20
+    m_total = 6
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

@@ -38,7 +38,7 @@ def fill_ternary_grids(mean, std, p, rounds, df_models, points, beta, midpoint, 
             # : Here the posterior mean and std_dv+acquisition function are calculated.
             mean[i], std[i] = fill_ternary_grid(mean[i], std[i], df_models[i], points, y_train_data = y_t)
         
-            m, p[i], conf_interval = calc_P(points, df_models[i], beta = beta, midpoint = midpoint)        
+            m, p[i] = calc_P(points, df_models[i], beta = beta, midpoint = midpoint)        
 
     return mean, std, p
 
@@ -85,8 +85,10 @@ def plotDF(rounds, materials, df_models, df_data, df_variable,
     # Min and max values for each contour plot are determined and normalization
     # of the color range is calculated.
     axis_scale = 1
-    lims_m = [np.min(gp_mean)/axis_scale, np.max(gp_mean)/axis_scale]
-    lims_s = [np.min(gp_std)/axis_scale, np.max(gp_std)/axis_scale]
+    # These could be set based on data but then contour levels (and their ticks
+    # are hard to calculate.
+    lims_m = [-1.5,1.5]#[np.min(gp_mean)/axis_scale, np.max(gp_mean)/axis_scale]
+    lims_s = [-1.5,1.5]#[np.min(gp_std)/axis_scale, np.max(gp_std)/axis_scale]
     lims_p = [0,1]
     
     for i in rounds_to_plot:
@@ -108,13 +110,15 @@ def plotDF(rounds, materials, df_models, df_data, df_variable,
                                cbar_label =
                                r'Human in round ' + str(i),
                                saveas = results_dir +
-                               'DF-round' + str(i) + '-' + time_now)
+                               'DF-round' + str(i) + '-' + time_now,
+                               cbar_ticks = np.arange(-1.5, 1.51, 0.5))
             
         plot_std_only(points, gp_std[i]/axis_scale,
                           color_lims = lims_s,
                           cbar_label = r'Std. of human in round' + str(i),
                           saveas = results_dir + 'St-Dev-of-df-round' +
-                              str(i) + '-' + time_now)
+                              str(i) + '-' + time_now,
+                              cbar_ticks = np.arange(-1.5, 1.51, 0.5))
                 
         plot_acq_only(points, p[i], color_lims = lims_p,
                           cbar_label = r'P(high quality) in round' + str(i),

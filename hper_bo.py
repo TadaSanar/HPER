@@ -362,12 +362,17 @@ def load_ground_truth(path_model):
     # Load already existing stability data as the "ground truth" of stability.
     with open(path_model, 'rb') as f:
         target_model_raw = pickle.load(f)
-
+    
+    # The current implementation assumes the model is GPy gp_regression.
+    # Uncomment the following lines if you want to use GPyOpt GPModel, instead.
+    
     # The saved model is GPyOpt GPModel that is a wrapper of GPy gp_regression.
     # GPyOpt is not maintained anymore, so for easier adaptation to other
     # packages, we use here GPy gp_regression model. Let's dig it out.
-    target_model = target_model_raw.model
-
+    #target_model = target_model_raw.model
+    
+    target_model = target_model_raw
+    
     return target_model
 
 def query_data_fusion_data_from_model(k, data_fusion_XZ_rounds, 

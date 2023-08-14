@@ -177,7 +177,7 @@ def repeated_tests(m, starting_point_candidates):
     folder = './Results/20230814-noisytarget-noisyhuman-ho/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 20,
+    bo_params = {'n_repetitions': 10,
                  'n_rounds': 50,
                  'n_init': 3,
                  'batch_size': 1,
@@ -540,7 +540,7 @@ if __name__ == "__main__":
     
 
     
-    m_total = 4
+    m_total = 104
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).

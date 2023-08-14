@@ -24,12 +24,9 @@ from tqdm.contrib.concurrent import process_map
 import tqdm
 import time
 
-#import logging
+import logging
 
 from functools import partial
-
-# %load_ext autoreload
-# %autoreload 2
 
 
 def ternary_rand():
@@ -151,6 +148,8 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
 
 def repeated_tests(m, starting_point_candidates):
 
+    print(' ', end='', flush=True)
+    
     c_eig = [0, 0.5, 0.75, 0.9, 1, 2]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
     c_exclz = [1, 5, 10, 20]
@@ -168,18 +167,18 @@ def repeated_tests(m, starting_point_candidates):
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.01, 0.1]
+    jitters = [0.1]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230811-noisytarget-noisyhuman-ho/'
+    folder = './Results/20230814-noisytarget-noisyhuman-ho/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 20,
-                 'n_rounds': 75,
+                 'n_rounds': 50,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']
@@ -275,42 +274,17 @@ def repeated_tests(m, starting_point_candidates):
             folder, bo_params, acq_fun_descr, df_data_coll_descr,
             fetch_file_date=fetch_file_date, m=m)
         
-        # Define log message file.
-        # Level INFO corresponds to 21, and we don't want GPyOpt debug
-        # messages on INFO level (there are way too many of them).
-        '''
-        # create logger
-        logger = logging.getLogger('SpyderKernelApp')
-        logger.setLevel(logging.WARNING)
-        
-        logger = logging.getLogger(__name__)
-        logger.setLevel(21)
-        
-        # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-        
-        
-        # create file handler and set level to debug
-        ch = logging.FileHandler(triangle_folder[0:-1] + '_log.txt')
-        ch.setLevel(21)
-        
-        # create formatter
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        
-        # add formatter to ch
-        ch.setFormatter(formatter)
-        
-        # add ch to logger
-        logger.addHandler(ch)
-        
-        logger.info("Starting")
-                
-        #logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
-        #                    level=21, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+                            level=21, format='%(asctime)s - %(levelname)s - %(message)s')
         
         if log_progress is False:
             
             logging.disable(logging.CRITICAL)
-        '''
+            
+        logging.log(31, "Starting method " + str(m))
+                
+        
+        
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
 
@@ -336,7 +310,7 @@ def repeated_tests(m, starting_point_candidates):
                 message = ('\n\nInit points method ' + str(m) + 
                              ',  repetition ' + str(i) + ':\n' +
                       str(all_starting_points[i]))
-                #logging.info(message)
+                logging.info(message)
 
             for i in range(bo_params['n_repetitions']):
 
@@ -363,7 +337,7 @@ def repeated_tests(m, starting_point_candidates):
                     ddcp = df_data_coll_params.copy()
 
                 next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models = bo_sim_target(
-                    bo_ground_truth_model_path='./Source_data/stability_model_GPyHomoscedastic',
+                    bo_ground_truth_model_path='./Source_data/stability_model_GPyHomoscedastic', #'./Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222',
                     materials=bo_params['materials'],
                     rounds=bo_params['n_rounds'],
                     init_points=all_starting_points[i],
@@ -395,7 +369,7 @@ def repeated_tests(m, starting_point_candidates):
                 
                 message = 'Method ' + str(m) + ', repetition ' + str(i)
                 print(message)
-                #logging.info(message)
+                logging.info(message)
 
                 # Save results after all repetitions have been done but also two
                 # times in between if the total number of repetitions is large.
@@ -562,8 +536,11 @@ def repeated_tests(m, starting_point_candidates):
 
 if __name__ == "__main__":
     ###############################################################################
+    
+    
 
-    m_total = 104
+    
+    m_total = 4
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).
@@ -578,14 +555,10 @@ if __name__ == "__main__":
         ncpus = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
     except KeyError:
         ncpus = mp.cpu_count()
-
-    '''
-    for i in range(m_total):
+    '''for i in range(m_total):
         
         repeated_tests(i, starting_point_candidates = starting_points)
-        
-    '''
-
+    '''    
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:
         # apply work function in parallel
@@ -595,3 +568,4 @@ if __name__ == "__main__":
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
+    

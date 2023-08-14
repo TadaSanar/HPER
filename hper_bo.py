@@ -13,7 +13,7 @@ import datetime
 import matplotlib.pyplot as plt
 from plotting_v2 import plotBO
 from plotting_data_fusion import plotDF
-#import logging
+import logging
 
 
 def predict_points(GP_model, x_points, Y_data=None):
@@ -632,7 +632,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                                                           index, axis=0)
                             # TO DO: Test if index works correctly when batch BO is used!
                             message = 'Deleted a point based on r exclusion.'
-                            #logging.log(21, message)
+                            logging.log(21, message)
 
                         else:
 
@@ -661,7 +661,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                     # Data fusion model y variance estimate.
                     vary_d = current_df_model.Gaussian_noise.variance[0]
                     message = 'Data fusion Gaussian noise variance: ' + str(vary_d)
-                    #logging.log(21, message)
+                    logging.log(21, message)
 
                     index = 0
                     for l in range(len(new_df_points_x_g)):
@@ -679,7 +679,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                             new_df_points_x_g = np.delete(
                                 new_df_points_x_g, index, axis=0)
                             message = 'Deleted a point based on EIG.'
-                            #logging.log(21, message)
+                            logging.log(21, message)
 
                         else:
 
@@ -991,7 +991,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     # DATA TREATMENT, PLOTTING, SAVING
 
     message = 'Last suggestions for the next sampling points: ' + str(x_next[-1])
-    #logging.log(21, message)
+    logging.log(21, message)
     
     # Save the model as an backup
     # dbfile = open('Backup-model-{date:%Y%m%d%H%M%S}'.format(date=datetime.datetime.now()), 'ab')
@@ -1031,7 +1031,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                    results_folder=results_folder)
         
         message = 'Results are saved into the given folder.'
-        #logging.log(21, message)
+        logging.log(21, message)
 
         plt.figure()
         plt.plot(range(rounds), optimum)
@@ -1042,7 +1042,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                'Variances in this run: ' + str(variances)  + '\n' +
                'Max gradients in this run: ' + str(max_gradients) + '\n' +
                'Results are saved into the given folder.')
-    #logging.log(21, message)
+    logging.log(21, message)
     
     surrogate_model_params = {'lengthscales': lengthscales,
                               'variances': variances,

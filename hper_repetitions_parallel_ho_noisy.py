@@ -336,7 +336,7 @@ def repeated_tests(m, starting_point_candidates):
                 message = ('\n\nInit points method ' + str(m) + 
                              ',  repetition ' + str(i) + ':\n' +
                       str(all_starting_points[i]))
-                logging.info(message)
+                #logging.info(message)
 
             for i in range(bo_params['n_repetitions']):
 
@@ -395,7 +395,7 @@ def repeated_tests(m, starting_point_candidates):
                 
                 message = 'Method ' + str(m) + ', repetition ' + str(i)
                 print(message)
-                logging.info(message)
+                #logging.info(message)
 
                 # Save results after all repetitions have been done but also two
                 # times in between if the total number of repetitions is large.

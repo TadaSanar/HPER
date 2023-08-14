@@ -219,7 +219,7 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
 
     return newcmap
 
-def create_ternary_grid(range_min=0, range_max=1, interval=0.005):
+def create_ternary_grid(range_min=0, range_max=1, interval=0.01):
     
     a = np.arange(range_min, range_max, interval)
     xt, yt, zt = np.meshgrid(a,a,a, sparse=False)

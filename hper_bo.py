@@ -756,7 +756,6 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
 
     # These variables are related to the Bayesian optimization.
     num_cores = 1  # Not a parallel run
-    jitter = 0.01  # The level of exploration.
 
     # No real experiments but data is queried online from a function.
     simulated_bo = True
@@ -1067,5 +1066,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     X_rounds = X_rounds.copy()
     Y_rounds = Y_rounds.copy()
     BO_objects = BO_objects.copy()
+    
+    logging.log(21,'Jitter: ' + str(acq_fun_params['jitter']))
 
     return next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects

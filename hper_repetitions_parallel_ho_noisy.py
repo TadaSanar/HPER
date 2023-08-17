@@ -174,11 +174,11 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230815-noisytarget-noisyhuman-ho/'
+    folder = './Results/20230817-noisytarget-noisyhuman-ho/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 20,
-                 'n_rounds': 50,
+    bo_params = {'n_repetitions': 25,
+                 'n_rounds': 75,
                  'n_init': 3,
                  'batch_size': 1,
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI']

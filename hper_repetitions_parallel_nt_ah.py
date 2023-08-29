@@ -14,7 +14,7 @@ import seaborn as sn
 import pandas as pd
 import numpy as np
 from numpy.random import SeedSequence
-from hper_bo import bo_sim_target, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
+from hper_bo_noiselevel import bo_sim_target, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
 from scipy.special import erf, erfinv
 
 import scipy as sp
@@ -27,9 +27,6 @@ import time
 import logging
 
 from functools import partial
-
-# %load_ext autoreload
-# %autoreload 2
 
 
 def ternary_rand():
@@ -85,7 +82,8 @@ def cg(p_above, std=1):
     return c_g
 
 
-def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_file_date=None, m=None):
+def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, 
+                    fetch_file_date=None, m=None):
 
     if fetch_file_date is None:
 
@@ -119,6 +117,7 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_
                         '_nrounds' + str(bo_params['n_rounds']) +
                         '_inits' + str(bo_params['n_init']) +
                         '_batch' + str(bo_params['batch_size']) +
+                        '_noisetarget' + str(bo_params['noise_target']) +
                         '_acq' + acq_fun_descr + df_data_coll_descr)
 
     pickle_variable_names = ['optima', 'X_accum', 'Y_accum', 'data_fusion_data',
@@ -128,7 +127,9 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, fetch_
     for i in pickle_variable_names:
         pickle_filenames.append(filename_prefix + '_' + i + filename_postfix)
 
-    figs = ['_optimum', '_regret', '_Ndfpoints']
+    figs = ['_optimum', '_regret', '_Ndfpoints', # Used in this code
+            '_region', '_lengthscales', '_variances' # Used in external scripts
+            ]
 
     figure_filenames = []
     for i in figs:
@@ -151,11 +152,13 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
 
 def repeated_tests(m, starting_point_candidates):
 
-    c_eig = [1]  # Expected information gain.
+    print(' ', end='', flush=True)
+    
+    c_eig = [0.75]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
     c_exclz = [20]
     # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.8])))
+    c_g = list(cg(np.array([0.6])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -175,23 +178,23 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230811-noisytarget-noiselesshuman-final/'
+    folder = './Results/20230829-noisytarget-noiselesshuman/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 50,
-                 'n_rounds': 125,
-                 'n_init': 3,
-                 'batch_size': 1,
-                 'materials': ['CsPbI', 'MAPbI', 'FAPbI']
+    bo_params = {'n_repetitions': 50, # Repetitions of the whole BO process.
+                 'n_rounds': 150, # Number of rounds in one BO.
+                 'n_init': 3, # Number of initial sampling points.
+                 'batch_size': 1, # Number of samples in each round.
+                 'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
+                 'noise_target': 1  # Noise level of the target variable (between [0,1])
                  }
+    
+    noise_df = 0 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
 
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = True
-    # Choose if noisy queries are being used or exact.
-    noise_df = False
-    noise_target = True
+    save_figs = False
     
     log_progress = True
     
@@ -252,7 +255,7 @@ def repeated_tests(m, starting_point_candidates):
                                            optional_acq_params={'jitter': jitter})
         acq_fun_descr = acq_fun_param2descr(
             acquisition_function, acq_fun_params=acq_fun_params)
-
+        
         if data_fusion_property is None:
 
             df_data_coll_params = df_data_coll_param_builder()
@@ -260,13 +263,14 @@ def repeated_tests(m, starting_point_candidates):
         elif (df_data_coll_method == 'model_all') or (df_data_coll_method == 'model_none'):
 
             df_data_coll_params = df_data_coll_param_builder(
-                df_method=df_data_coll_method)
+                df_method=df_data_coll_method, noise_df = noise_df)
 
         else:
 
             df_data_coll_params = df_data_coll_param_builder(df_method=df_data_coll_method,
                                                              gradient_param=c_grad,
-                                                             exclusion_param=c_e)
+                                                             exclusion_param=c_e,
+                                                             noise_df = noise_df)
 
         df_data_coll_descr = df_data_coll_method_param2descr(
             df_data_coll_params)
@@ -275,42 +279,17 @@ def repeated_tests(m, starting_point_candidates):
             folder, bo_params, acq_fun_descr, df_data_coll_descr,
             fetch_file_date=fetch_file_date, m=m)
         
-        # Define log message file.
-        # Level INFO corresponds to 21, and we don't want GPyOpt debug
-        # messages on INFO level (there are way too many of them).
-        
-        # create logger
-        logger = logging.getLogger('SpyderKernelApp')
-        logger.setLevel(logging.WARNING)
-        
-        logger = logging.getLogger(__name__)
-        logger.setLevel(21)
-        
-        # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-        
-        
-        # create file handler and set level to debug
-        ch = logging.FileHandler(triangle_folder[0:-1] + '_log.txt')
-        ch.setLevel(21)
-        
-        # create formatter
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        
-        # add formatter to ch
-        ch.setFormatter(formatter)
-        
-        # add ch to logger
-        logger.addHandler(ch)
-        
-        logger.info("Starting")
-                
-        #logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
-        #                    level=21, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+                            level=21, format='%(asctime)s - %(levelname)s - %(message)s')
         
         if log_progress is False:
             
             logging.disable(logging.CRITICAL)
-        
+            
+        logging.log(31, "Starting method " + str(m))
+                
+        logging.log(21, 'Jitter in reps: ' + str(acq_fun_params['jitter']))
+
         
         # Set figure style.
         mystyle = FigureDefaults('nature_comp_mat_sc')
@@ -364,7 +343,7 @@ def repeated_tests(m, starting_point_candidates):
                     ddcp = df_data_coll_params.copy()
 
                 next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models = bo_sim_target(
-                    bo_ground_truth_model_path='./Source_data/stability_model_GPyHomoscedastic',
+                    bo_ground_truth_model_path='./Source_data/stability_model_GPyHomoscedastic', #'./Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222',
                     materials=bo_params['materials'],
                     rounds=bo_params['n_rounds'],
                     init_points=all_starting_points[i],
@@ -373,7 +352,8 @@ def repeated_tests(m, starting_point_candidates):
                     acq_fun_params=afp,
                     df_data_coll_params=ddcp,
                     no_plots=no_plots, results_folder=triangle_folder,
-                    noise_df=noise_df, noise_target=noise_target)
+                    noise_target = bo_params['noise_target'],
+                    seed = m)
 
                 # All ouputs saved only from the first two repetitions to save
                 # disk space.
@@ -563,36 +543,40 @@ def repeated_tests(m, starting_point_candidates):
 
 if __name__ == "__main__":
     ###############################################################################
+    
+    
 
+    # Number of methods to be tested.
     m_total = 8
-
+    
     # Create a list of seeds for repetitions (increase max_reps if you need
-    # more repetitions than the current max_rep value is).
+    # more repetitions than the current max_rep value is). Every method will
+    # share these same init points.
     max_reps = 200
     max_init_pts = 20
     starting_points = create_ternary_starting_points(
         n_reps=max_reps, n_init=max_init_pts)
-
+    
+    
     ###############################################################################
-    # get number of cpus available to job
+    
+    # Number of cpus available to this job.
     try:
         ncpus = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
     except KeyError:
         ncpus = mp.cpu_count()
-
+    
+    # This is a serial version of the code.
     '''
     for i in range(m_total):
         
         repeated_tests(i, starting_point_candidates = starting_points)
-        
-    '''
-
-    # create pool of ncpus workers
+    '''    
+    # This is a parallelized version of the code.
+    # Create a pool of workers (corresponding to Ncpus)
     with mp.Pool(ncpus) as pool:
-        # apply work function in parallel
-
-        # TO DO: Both versions work, which one is faster/better?
-        #list(tqdm.tqdm(pool.imap(repeated_tests, range(m_total)), total=m_total))
+        
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
+    

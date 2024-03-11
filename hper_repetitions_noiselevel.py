@@ -178,7 +178,7 @@ def repeated_tests(m, starting_point_candidates):
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230821-noisytarget-noiselesshuman/'
+    folder = './Results/Test/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
@@ -194,9 +194,9 @@ def repeated_tests(m, starting_point_candidates):
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     
-    log_progress = False
+    log_progress = True
     
     if (m > -1):
 

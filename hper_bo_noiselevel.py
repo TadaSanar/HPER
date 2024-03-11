@@ -946,7 +946,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     for k in range(rounds):
 
         if (function == True):
-
+            
             # Query target variable values from the provided ground truth model
             # and update X_rounds, Y_rounds, X_accum, Y_accum in place.
             X_rounds, Y_rounds, X_accum, Y_accum = query_target_data_from_model(
@@ -982,9 +982,9 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                                                             batch_size=batch_size,
                                                             acquisition_jitter=acq_fun_params['jitter'],
                                                             acq_fun_params=acq_fun_params,
-                                                            noise_var = 0.1*(Y_accum[k]/Y_accum[k].max()).var(), #10e-12,# GPyOpt assumes normalized Y data at the point when variance is defined.
-                                                            optimize_restarts = 2,#10,
-                                                            max_iters = 1000,#2000
+                                                            noise_var = 0.1*(Y_accum[k]/Y_accum[k].max()).var(), #10e-12,# # GPyOpt assumes normalized Y data at the point when variance is defined.
+                                                            optimize_restarts = 10,#10,#2,
+                                                            max_iters = 2000,#1000,
                                                             exact_feval = exact_feval
                                                             )
 

@@ -28,9 +28,6 @@ import logging
 
 from functools import partial
 
-# %load_ext autoreload
-# %autoreload 2
-
 
 def ternary_rand():
 
@@ -151,11 +148,13 @@ def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
 
 def repeated_tests(m, starting_point_candidates):
 
+    print(' ', end='', flush=True)
+    
     c_eig = [1]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = []
+    c_exclz = [20]
     # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.8])))
+    c_g = list(cg(np.array([0.6])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -168,14 +167,14 @@ def repeated_tests(m, starting_point_candidates):
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.01]
+    jitters = [0.01, 0.1]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/Temp/'
+    folder = './Results/Temp/Normal_code/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 1,
@@ -190,7 +189,7 @@ def repeated_tests(m, starting_point_candidates):
     # Give False if you don't want to save the figures.
     save_figs = True
     # Choose if noisy queries are being used or exact.
-    noise_df = True
+    noise_df = False
     noise_target = True
     
     log_progress = True
@@ -274,21 +273,17 @@ def repeated_tests(m, starting_point_candidates):
         pickle_filenames, figure_filenames, triangle_folder = build_filenames(
             folder, bo_params, acq_fun_descr, df_data_coll_descr,
             fetch_file_date=fetch_file_date, m=m)
-        
+        '''
+        # create logger
+        logger = logging.getLogger('root.' + __name__ + str(m))#__name__ + str(m))
         # Define log message file.
         # Level INFO corresponds to 21, and we don't want GPyOpt debug
         # messages on INFO level (there are way too many of them).
-        
-        # create logger
-        logger = logging.getLogger('SpyderKernelApp')
-        logger.setLevel(logging.WARNING)
-        
-        logger = logging.getLogger(__name__)
         logger.setLevel(21)
-        
-        # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-        
-        
+
+        # create formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
         # create file handler and set level to debug
         ch = logging.FileHandler(triangle_folder[0:-1] + '_log.txt')
         ch.setLevel(21)
@@ -301,15 +296,16 @@ def repeated_tests(m, starting_point_candidates):
         
         # add ch to logger
         logger.addHandler(ch)
-        
-        logger.info("Starting")
-                
-        #logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
-        #                    level=21, format='%(asctime)s - %(levelname)s - %(message)s')
+        '''
+        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+                            level=21, format='%(asctime)s - %(levelname)s - %(message)s')
         
         if log_progress is False:
             
             logging.disable(logging.CRITICAL)
+            
+        logging.log(31, "Starting method " + str(m))
+                
         
         
         # Set figure style.
@@ -563,8 +559,11 @@ def repeated_tests(m, starting_point_candidates):
 
 if __name__ == "__main__":
     ###############################################################################
+    
+    
 
-    m_total = 3
+    
+    m_total = 8
 
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is).
@@ -579,12 +578,43 @@ if __name__ == "__main__":
         ncpus = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
     except KeyError:
         ncpus = mp.cpu_count()
+    '''
+    logging.basicConfig(filename= 'log.txt', 
+                        level=21, format='%(asctime)s - %(levelname)s - %(message)s')
+    
+    # create a logger
+    logger = logging.getLogger()
+    # log all messages, debug and up
+    logger.setLevel(21)
+    # report initial message
+    logging.log(21, 'Main process started.')
+    
+    #loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    #print(loggers)
+    
+    # create file handler and set level to debug
+    ch = logging.FileHandler('log.txt')
+    ch.setLevel(21)
+    
+    # create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    
+    # add formatter to ch
+    ch.setFormatter(formatter)
+    
+    #lh_stdout = logger.handlers[0]  # stdout is the only handler initially
 
-    for i in range(m_total):
+    # add ch to logger
+    logger.addHandler(ch)
+    #logger.removeHandler(lh_stdout)
+    
+    logger2 = logging.getLogger('root.SpyderKernelApp')
+    logger2.setLevel(logging.ERROR)
+    '''
+    '''for i in range(m_total):
         
         repeated_tests(i, starting_point_candidates = starting_points)
-    '''
-        
+    '''    
     # create pool of ncpus workers
     with mp.Pool(ncpus) as pool:
         # apply work function in parallel
@@ -594,4 +624,4 @@ if __name__ == "__main__":
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
-    '''
+    

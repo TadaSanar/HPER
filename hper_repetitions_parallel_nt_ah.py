@@ -154,11 +154,11 @@ def repeated_tests(m, starting_point_candidates):
 
     print(' ', end='', flush=True)
     
-    c_eig = [0.75]  # Expected information gain.
+    c_eig = [1]#[0.75]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [20]
-    # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.6])))
+    c_exclz = [20]#[20]
+    # Gradient limit. When the number is higher, the criterion picks less points. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
+    c_g = list(cg(np.array([0.8])))#list(cg(np.array([0.6])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -171,18 +171,18 @@ def repeated_tests(m, starting_point_candidates):
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.01, 0.1]
+    jitters = [0.1]#[0.01, 0.1]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20230829-noisytarget-noiselesshuman/'
+    folder = './Results/20231126-DBG-noisytarget-noiselesshuman8/' #'./Results/20230829-noisytarget-noiselesshuman/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 50, # Repetitions of the whole BO process.
-                 'n_rounds': 150, # Number of rounds in one BO.
+    bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
+                 'n_rounds': 100, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
@@ -197,6 +197,8 @@ def repeated_tests(m, starting_point_candidates):
     save_figs = False
     
     log_progress = True
+    
+    #A I tried with seed = None.
     
     if (m > -1):
 
@@ -353,7 +355,7 @@ def repeated_tests(m, starting_point_candidates):
                     df_data_coll_params=ddcp,
                     no_plots=no_plots, results_folder=triangle_folder,
                     noise_target = bo_params['noise_target'],
-                    seed = m)
+                    seed = None)#Am)
 
                 # All ouputs saved only from the first two repetitions to save
                 # disk space.
@@ -547,7 +549,7 @@ if __name__ == "__main__":
     
 
     # Number of methods to be tested.
-    m_total = 8
+    m_total = 4
     
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is). Every method will
@@ -567,7 +569,6 @@ if __name__ == "__main__":
         ncpus = mp.cpu_count()
     
     # This is a serial version of the code.
-    '''
     for i in range(m_total):
         
         repeated_tests(i, starting_point_candidates = starting_points)
@@ -579,4 +580,4 @@ if __name__ == "__main__":
         r = process_map(partial(repeated_tests,
                                 starting_point_candidates=starting_points),
                         range(m_total), max_workers=ncpus)
-    
+    '''

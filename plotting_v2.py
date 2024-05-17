@@ -97,6 +97,12 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         
         #print('surflevels', surf_levels)    
     
+    else:
+        
+        # Surf levels have been given, just specify the tick idx.
+        tick_idx = np.arange(len(surf_levels))
+        
+    
     # plot the contour
     im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels, norm = norm)
     
@@ -120,7 +126,8 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
     elif cbar_ticks is not None:
         cbar=plt.colorbar(im, ax=ax, ticks=cbar_ticks)
     else:
-        cbar=plt.colorbar(im, ax=ax, format=myformatter, spacing=surf_levels, ticks=surf_levels[tick_idx])
+        cbar=plt.colorbar(im, ax=ax, format=myformatter, spacing=surf_levels, 
+                          ticks=surf_levels[tick_idx])
         
     cbar.ax.tick_params(labelsize=8)
     cbar.set_label(cbar_label, fontsize=8)#, labelpad = -0.5)
@@ -500,7 +507,8 @@ def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = '
 
 def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
            BO_objects, materials, X_rounds, Y_rounds, Y_accum, X_accum, x_next,
-           limit_file_number = True, time_str = None, results_folder = './Results/'):
+           limit_file_number = True, time_str = None, 
+           results_folder = './Results/', minimize = True):
     
     
     # Create a ternary grid 'points', the necessary folder structure, and 
@@ -517,6 +525,7 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
                                                                        BO_objects, 
                                                                        points, 
                                                                        y_train_data = Y_accum)
+    
     
     ###############################################################################
     # SAVE RESULTS TO CSV FILES
@@ -589,6 +598,43 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
                                      '-' + time_now)
             
     plt.close('all')
+    
+    if minimize is True:
+        
+        model_optimum = np.min(np.array(posterior_mean), axis = 1)
+        idx = np.argmin(np.array(posterior_mean), axis = 1)
+    else:
+        
+        model_optimum = np.max(np.array(posterior_mean), axis = 1)
+        idx = np.argmax(np.array(posterior_mean), axis = 1)
+    
+    model_optimum_x = points[idx, :]
+    model_optimum_x = np.reshape(model_optimum_x, (model_optimum_x.shape[0], 
+                                                   model_optimum_x.shape[2]))
+        
+    # Ground truth values from the C2a paper final model (as a reference for 
+    # the next figures).
+    ref_x = np.array([[0.165, 0.04, 0.79]])
+    ref_y = 126444
+    ref_y_std = 106462
+    
+    plt.figure()
+    plt.plot(range(rounds), model_optimum)
+    plt.plot((0, rounds), [ref_y, ref_y], 'k--', linewidth = 0.5)
+    plt.xlabel('Round')
+    plt.ylabel('Target value')
+    plt.title('Model optimum')
+    plt.show()
+    
+    plt.figure()
+    plt.plot(range(rounds), model_optimum_x)
+    plt.plot((0, rounds), np.repeat(ref_x, repeats = 2, axis = 0), 'k--', linewidth = 0.5)
+    plt.xlabel('Round')
+    plt.ylabel('$x_i$')
+    plt.title('Model optimum')
+    plt.legend(['$x_0$', '$x_1$', '$x_2$'])
+    plt.show()
+    
     
     '''
     norm = matplotlib.colors.Normalize(vmin=lims[2][0], vmax=lims[2][1])

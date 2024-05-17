@@ -7,52 +7,63 @@ MIT Photovoltaics Laboratory
 import pandas as pd
 import numpy as np
 import GPyOpt
+import GPy
 from GPyOpt.acquisitions.EI_DFT import GP_model
 import pickle
 import datetime
 import matplotlib.pyplot as plt
 from plotting_v2 import plotBO
 from plotting_data_fusion import plotDF
-import logging
+#import logging
 import random
 
-def predict_points(GP_model, x_points, Y_data=None):
+def predict_points(gpmodel, x_points, Y_data=None):
     '''
-    For a GPy GP regression model.
+    For a GPy GP regression model or GPyOpt GPModel.
     '''
-    posterior_mean, posterior_var = GP_model.predict(x_points)
-
+    if type(gpmodel) is GPy.models.gp_regression.GPRegression:
+        
+        # Prediction output is mean, variance.
+        posterior_mean, posterior_var = gpmodel.predict(x_points)
+        posterior_std = np.sqrt(posterior_var)
+        
+    elif type(gpmodel) is GPyOpt.models.gpmodel.GPModel:
+        
+        # Prediction output is mean, standard deviation.
+        posterior_mean, posterior_std = gpmodel.predict(x_points)
+        posterior_var = (posterior_std)**2
+        
     # If the model has been trained with already-scaled (zero mean, unit
     # variance) data, the provided train data 'Y_data' will be used for scaling
     # the predictions to the correct units.
     if Y_data is not None:
         posterior_mean_true_units = posterior_mean * \
             np.std(Y_data) + np.mean(Y_data)
-        posterior_var_true_units = (np.std(Y_data))**2 * posterior_var
+        posterior_std_true_units = posterior_std * np.std(Y_data)
 
         posterior_mean = posterior_mean_true_units
-        posterior_var = posterior_var_true_units
-
+        posterior_var = posterior_std_true_units**2
+    
     return posterior_mean, posterior_var
 
 
-def predict_points_noisy(GP_model, x_points, Y_data=None, noise_level = 1,
+def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
                          seed = None):
 
     if seed is not None:
         np.random.seed(seed)
     # Predictions.
     posterior_mean, posterior_var = predict_points(
-        GP_model, x_points, Y_data=Y_data)
+        gpmodel, x_points, Y_data=Y_data)
 
     # Adding Gaussian noise to the mean predictions.
     posterior_mean_noisy = np.random.normal(
         posterior_mean, np.sqrt(posterior_var)*noise_level)
     
-    logging.log(21, 'Noise level: ' + str(noise_level))
-    logging.log(21, 'Posterior mean: ' + str(posterior_mean))
-    logging.log(21, 'Posterior mean noisy: ' + str(posterior_mean_noisy))
-    logging.log(21, 'Seed: ' + str(np.random.get_state()[1][0]))
+    #logging.log(21, 'Noise level: ' + str(noise_level))
+    #logging.log(21, 'Posterior mean: ' + str(posterior_mean))
+    #logging.log(21, 'Posterior mean noisy: ' + str(posterior_mean_noisy))
+    #logging.log(21, 'Seed: ' + str(np.random.get_state()[1][0]))
     
     return posterior_mean_noisy, posterior_var, posterior_mean
 
@@ -653,7 +664,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                                                           index, axis=0)
                             # TO DO: Test if index works correctly when batch BO is used!
                             message = 'Deleted a point based on r exclusion.'
-                            logging.log(21, message)
+                            #logging.log(21, message)
 
                         else:
 
@@ -667,12 +678,13 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                     # Drop points if the expected information gain for the
                     # human opinion model is too low.
 
-                    # Let's re-create the human opinion model for EIG test.
-                    current_df_model = GP_model(data_fusion_XZ_accum[k],
-                                                acq_fun_params['df_target_var'],
-                                                acq_fun_params['gp_lengthscale'],
-                                                acq_fun_params['gp_variance'],
-                                                acq_fun_params['df_input_var'])
+                    ## Let's re-create the human opinion model for EIG test.
+                    #current_df_model = GP_model(data_fusion_XZ_accum[k],
+                    #                            acq_fun_params['df_target_var'],
+                    #                            acq_fun_params['gp_lengthscale'],
+                    #                            acq_fun_params['gp_variance'],
+                    #                            acq_fun_params['df_input_var'])
+                    current_df_model = acq_fun_params['df_model']
                     
                     # Variance on each point x (pred. from the data fusion
                     # model).
@@ -682,7 +694,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                     # Data fusion model y variance estimate.
                     vary_d = current_df_model.Gaussian_noise.variance[0]
                     message = 'Data fusion Gaussian noise variance: ' + str(vary_d)
-                    logging.log(21, message)
+                    #logging.log(21, message)
 
                     index = 0
                     for l in range(len(new_df_points_x_g)):
@@ -700,7 +712,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
                             new_df_points_x_g = np.delete(
                                 new_df_points_x_g, index, axis=0)
                             message = 'Deleted a point based on EIG.'
-                            logging.log(21, message)
+                            #logging.log(21, message)
 
                         else:
 
@@ -877,7 +889,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     # BO objects for each BO round (fitted using data acquired by the round in
     # question).
     BO_objects = [None for j in range(rounds)]
-
+    
     if simulated_bo == False:
 
         # The actually collected optimization target points from the previous
@@ -904,7 +916,9 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
         # All the data actully collected by that round (in DataFrames):
         data_fusion_XZ_accum = [None for j in range(rounds)]
         # GP models for each BO round (fitted using data acquired by the round
-        # in question).
+        # in question, note that object is added only when the model
+        # changes after having acquired more data fusion data - this is to save
+        # memory):
         data_fusion_models = [None for j in range(rounds)]
 
         if df_data_coll_params['use_model'] == False:
@@ -968,6 +982,38 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                 # be sent to the BO.
                 acq_fun_params['df_data'] = data_fusion_XZ_accum[k]
                 
+        if df_data_coll_params is not None:
+            
+            if k == 0:
+                
+                # Create a data fusion model with the data fusion data collected this far.
+                current_df_model = GP_model(data_fusion_XZ_accum[k],
+                                            acq_fun_params['df_target_var'],
+                                            acq_fun_params['gp_lengthscale'],
+                                            acq_fun_params['gp_variance'],
+                                            acq_fun_params['df_input_var'])
+                
+                data_fusion_models[k] = current_df_model.copy()
+                
+            else:
+                
+                if data_fusion_XZ_rounds[k].empty is False:
+                    
+                    # Update existing data fusion model with THE new observations.
+                    
+                    current_df_model.set_XY(X = acq_fun_params['df_data'][
+                        acq_fun_params['df_input_var']].values,
+                                            Y = acq_fun_params['df_data'][[
+                                                acq_fun_params['df_target_var']]].values)
+                    
+                    current_df_model.optimize_restarts(messages=False, 
+                                                       max_iters = 1000,
+                                                       num_restarts = 2)
+                    
+                    data_fusion_models[k] = current_df_model.copy()
+            
+            acq_fun_params['df_model'] = current_df_model.copy()
+        
         # Define and fit BO object.
         # f=None because this code will be adapted in future for experimental
         # BO cycles.
@@ -978,14 +1024,19 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                                                             normalize_Y=True,
                                                             X=X_accum[k],
                                                             Y=Y_accum[k],
-                                                            evaluator_type='local_penalization',
+                                                            evaluator_type='sequential',#'local_penalization',
                                                             batch_size=batch_size,
                                                             acquisition_jitter=acq_fun_params['jitter'],
                                                             acq_fun_params=acq_fun_params,
-                                                            noise_var = 0.1*(Y_accum[k]/Y_accum[k].max()).var(), #10e-12,# # GPyOpt assumes normalized Y data at the point when variance is defined.
-                                                            optimize_restarts = 10,#10,#2,
-                                                            max_iters = 2000,#1000,
-                                                            exact_feval = exact_feval
+                                                            noise_var = 10e-12,#0.1*(Y_accum[k]/Y_accum[k].max()).var(),#1e-12,#BOSS default (self.noise) is 10e-12, note that Emma needs to change this to noisy case. 0.1*(Y_accum[k]/Y_accum[k].max()).var(), #10e-12,# # GPyOpt assumes normalized Y data at the point when variance is defined.
+                                                            #optimize_restarts = 10,#10,#2,
+                                                            #max_iters = 2000,#1000,
+                                                            exact_feval = exact_feval,
+                                                            ARD=True,
+                                                            kernel = None #GPy.kern.RBF#input_dim=3, ARD = True)#, 
+                                                                                    # variance = 54468035, 
+                                                                                    # lengthscale = 0.08)
+                                                            #num_cores = 1
                                                             )
 
         # Suggest next points (samples to prepare).
@@ -1024,7 +1075,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     # DATA TREATMENT, PLOTTING, SAVING
 
     message = 'Last suggestions for the next sampling points: ' + str(x_next[-1])
-    logging.log(21, message)
+    #logging.log(21, message)
     
     # Save the model as an backup
     # dbfile = open('Backup-model-{date:%Y%m%d%H%M%S}'.format(date=datetime.datetime.now()), 'ab')
@@ -1048,13 +1099,17 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     if no_plots == False:
 
         time_now = '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
-
+        
+        
+        # Plot ternary-specific plots.
         plotBO(rounds, x_next_df, BO_objects, materials, X_rounds, Y_rounds,
                Y_accum, X_accum, x_next, limit_file_number=True,
-               time_str=time_now, results_folder=results_folder)
+               time_str=time_now, results_folder=results_folder,
+               minimize = True)
 
         if acquisition_function == 'EI_DFT':
 
+            # Plot ternary-specific plots regarding data fusion.
             plotDF(rounds, materials, data_fusion_models,
                    data_fusion_XZ_rounds, acq_fun_params['df_target_var'],
                    acq_fun_params['gp_lengthscale'],
@@ -1064,10 +1119,67 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                    results_folder=results_folder)
         
         message = 'Results are saved into the given folder.'
-        logging.log(21, message)
-
+        #logging.log(21, message)
+        
+        # Ground truth values from the C2a paper final model (as a reference
+        # for the next figures).
+        ref_x = np.array([[0.165, 0.04, 0.79]])
+        ref_y = 126444
+        ref_y_std = 106462
+        
+        
+        # Plots that work with any dimensionality.
+        
         plt.figure()
-        plt.plot(range(rounds), optimum)
+        plt.plot(range(Y_accum[-1].shape[0]), Y_accum[-1])
+        plt.xlabel('Sample')
+        plt.ylabel('Target value')
+        plt.title('All samples')
+        plt.show()
+        
+        plt.figure()
+        plt.plot(range(X_accum[-1].shape[0]), np.sum(X_accum[-1], axis = 1), 'k', linewidth = 0.5)
+        plt.plot(range(X_accum[-1].shape[0]), X_accum[-1])
+        plt.xlabel('Sample')
+        plt.ylabel('$x_i$')
+        plt.title('All samples')
+        plt.legend(['Sum $x_i$', '$x_0$', '$x_1$', '$x_2$'])
+        plt.show()
+        
+        '''
+        plt.figure()
+        plt.plot(range(rounds), optimum[:, -1])
+        plt.xlabel('Round')
+        plt.ylabel('Target value')
+        plt.title('Best found sample')
+        plt.show()
+        '''
+        
+        plt.figure()
+        plt.plot(range(rounds), optimum[:, -1])
+        plt.plot((0, rounds), [ref_y, ref_y], 'k--', linewidth = 0.5)
+        plt.xlabel('Round')
+        plt.ylabel('Target value')
+        plt.title('Best found sample')
+        plt.show()
+        
+        '''
+        plt.figure()
+        plt.plot(range(rounds), optimum[:, 0:(-1)])
+        plt.xlabel('Round')
+        plt.ylabel('$x_i$')
+        plt.title('Best found sample')
+        plt.show()
+        '''
+        
+        plt.figure()
+        plt.plot(range(rounds), np.sum(optimum[:, 0:(-1)], axis = 1), 'k', linewidth = 0.5)
+        plt.plot(range(rounds), optimum[:, 0:(-1)])
+        plt.plot((0, rounds), np.repeat(ref_x, repeats = 2, axis = 0), 'k--', linewidth = 0.5)
+        plt.xlabel('Round')
+        plt.ylabel('$x_i$')
+        plt.title('Best found sample')
+        plt.legend(['Sum $x_i$', '$x_0$', '$x_1$', '$x_2$'])
         plt.show()
 
     message = ('Gaussian noises in this run: ' + str(gaussian_noises) + '\n' +
@@ -1075,7 +1187,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
                'Variances in this run: ' + str(variances)  + '\n' +
                'Max gradients in this run: ' + str(max_gradients) + '\n' +
                'Results are saved into the given folder.')
-    logging.log(21, message)
+    #logging.log(21, message)
     
     surrogate_model_params = {'lengthscales': lengthscales,
                               'variances': variances,
@@ -1101,7 +1213,7 @@ def bo_sim_target(bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_u
     Y_rounds = Y_rounds.copy()
     BO_objects = BO_objects.copy()
     
-    logging.log(21, 'Jitter: ' + str(acq_fun_params['jitter']))
-    logging.log(21, 'Y values: ' + str(Y_rounds))
+    #logging.log(21, 'Jitter: ' + str(acq_fun_params['jitter']))
+    #logging.log(21, 'Y values: ' + str(Y_rounds))
 
     return next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects

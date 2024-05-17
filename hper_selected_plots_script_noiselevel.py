@@ -232,7 +232,8 @@ def create_wide_and_long_df(values, var_name, n_rounds, n_repetitions):
 
 def create_plot(df_data_long, name_in_legend, color, legend_list,
                 figsize = [3,2], fig_handle = None,
-                ground_truth_reference = None, ylim = None, ylog = False):
+                ground_truth_reference = None, ylim = None, ylog = False, 
+                xlim = None):
 
     if fig_handle is None:
         current_fig = plt.figure()
@@ -252,6 +253,10 @@ def create_plot(df_data_long, name_in_legend, color, legend_list,
      	plt.ylim([0,ylim])
     elif (ylim is not None) and (ylog is True):
         plt.ylim([1, ylim])
+    
+    if (xlim is not None):
+     	plt.xlim([0,xlim])
+    
     
     #plt.xlim([0,50])
     
@@ -281,9 +286,9 @@ def create_plot(df_data_long, name_in_legend, color, legend_list,
     
     return current_fig, legend_list
 
-def create_barplot(series_boolean, name_in_legend, color, legend_list,
-                figsize = [3,2], fig_handle = None,
-                ground_truth_reference = None, ylim = 1.00):
+def create_barplot(data_mean, data_std, name_in_legend, color,
+                figsize = [3,2], ylabel = None, fig_handle = None,
+                ground_truth_reference = None, ylim = 1.00, figname = 'fig'):
 
     if fig_handle is None:
         current_fig = plt.figure()
@@ -297,17 +302,19 @@ def create_barplot(series_boolean, name_in_legend, color, legend_list,
     #bar = series_boolean.astype(int).mean()
     
     x = ['Not', 'Always', 'When\nnecessary']
-    y = [0, 0.7, 0.567]#[0.53, 0.87, 0.83]#[0.6, 1, 0.9]#[0.367, 0.833, 0.633]#
-    e = [0.1, 0.1, 0.1]
+    y = data_mean
+    e = data_std
+    
     #sn.color_palette()[1]
     # Mean values
-    sn.barplot(x, y, ax = ax)
+    sn.barplot(x, y, ax = ax, label = name_in_legend)
     #legend_list.append(name_in_legend)
     
-    plt.ylabel('Proportion')
-    plt.xlabel('Human queried')#if (ylim is not None):
+    plt.ylabel(ylabel)
+    plt.xlabel('Human queried')
+    #if (ylim is not None):
     #plt.title('Searches that converge into Region A')
-    plt.ylim([0,ylim])
+    #plt.ylim([0,ylim])
         
     plt.gcf().set_size_inches(figsize)
     plt.tight_layout()
@@ -317,19 +324,24 @@ def create_barplot(series_boolean, name_in_legend, color, legend_list,
         if legends_visible:
                 plt.legend(legend_list)
     
-    plt.gcf().savefig(figure_filenames[2] + '.pdf', transparent = True)
-    plt.gcf().savefig(figure_filenames[2] + '.svg', transparent = True)
-    plt.gcf().savefig(figure_filenames[2] + '.png', dpi=300)
+    plt.gcf().savefig(figname + '.pdf', transparent = True)
+    plt.gcf().savefig(figname + '.svg', transparent = True)
+    plt.gcf().savefig(figname + '.png', dpi=300)
     
     return current_fig, legend_list
 
+
+
+
+            
+
 ###############################################################################
 
-c_eig = [0, 0.2, 0.5, 0.8, 1]#[0, 0.5, 0.75, 0.9, 1, 2]  # Expected information gain.
+c_eig = [0.95]#[0, 0.2, 0.5, 0.8, 1]#[0, 0.5, 0.75, 0.9, 1, 2]  # Expected information gain.
 # Size of the exclusion zone in percentage points (max. 100)
-c_exclz = [0,1,5,10,20]#[1, 5, 10, 20]
+c_exclz = [15]#[0,1,5,10,20]#[1, 5, 10, 20]
 # Gradient limit. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-c_g = list(cg(np.array([0.2, 0.5, 0.8, 1])))#list(cg(np.array([0.2, 0.5, 0.6, 0.8, 1])))
+c_g = list(cg(np.array([0.8])))#0.2, 0.5, 0.8, 1])))#list(cg(np.array([0.2, 0.5, 0.6, 0.8, 1])))
 
 hyperparams_eig = []
 hyperparams_exclz = []
@@ -342,7 +354,7 @@ for i in range(len(c_g)):
 
         hyperparams_eig.append((c_g[i], c_eig[j]))
         
-jitters = [0.01]#[0.01, 0.1]
+jitters = [0.01]#, 0.1]
 
 
 n_eig  = len(hyperparams_eig)
@@ -350,19 +362,19 @@ n_exclz  = len(hyperparams_exclz)
 n_hpars = 2 + n_eig + n_exclz
 n_j = len(jitters)
 
-folder = './Results/20231129-noisytarget-noisyhuman-ho-j001/'#'./Results/triton/20230823-noisytarget-noisyhuman-ho/'
+folder = './Results/20240409-comp-to-boss-no-noise-add-constr-noard-nonorm-Mat52kernel/'#'20231129-noisytarget-noisyhuman-ho-j001/'#'./Results/triton/20230823-noisytarget-noisyhuman-ho/'
 #ground_truth_rA = [0.17, 0.03, 0.80]  # From C2a paper
 ground_truth_rA = [0.165, 0.04, 0.79]  # From the ground truth model
 
-bo_params = {'n_repetitions': 20,
-             'n_rounds': 50,#75,
+bo_params = {'n_repetitions': 25,
+             'n_rounds': 40,#75,
              'n_init': 3,
              'batch_size': 1,
              'materials': ['CsPbI', 'MAPbI', 'FAPbI'],
-             'noise_target': 1
+             'noise_target': 0
              }
 
-noise_df = 1#1
+noise_df = 0#1
 
 ground_truth_rB = [1,0,0]  # Ground truth location of Region B
 
@@ -378,7 +390,7 @@ legends_visible = False
 # When plotting HO results, it may be beneficial to plot intermediate regret
 # values if the searches have all converged. Insert the round you want to plot
 # int his case.
-regret_interm_idx = 34#19
+regret_interm_idx = 39#34#19
 
 bo_ground_truth_model_path = './Source_data/stability_model_GPyHomoscedastic'#'./Source_data/stability_model_improved_region_B.p'#
 to_same_plot = True
@@ -420,12 +432,12 @@ with open(bo_ground_truth_model_path,'rb') as f:
     gt_stability_model = pickle.load(f)
     #gt_stability_model = gt_stability_model.model # GPy GPregression model if the loaded model was GPyOpt GPModel
 
-ground_truth_y, ground_truth_y_std = predict_points(gt_stability_model,
+ground_truth_y, ground_truth_y_var = predict_points(gt_stability_model,
                                                     np.array([ground_truth_rA]),
                                                     Y_data = gt_stability_model.Y)
 
 ground_truth_y = ground_truth_y/60 #np.ravel(ground_truth_y-ground_truth_y_std)/60 # To px*h
-ground_truth_y_std = ground_truth_y_std/60
+ground_truth_y_std = ground_truth_y_var/60
 
 # Relative noise is high in the ground truth area. Thus, BO that samples
 # the noisy predictions will commonly find optima that are clearly lower
@@ -567,6 +579,12 @@ for m in range(len(dates_list)):
         optima = np.array(optima)/60 # To px*h
         
         #######################################################################
+        # Check that all the datapoints are inside the triangle. A plot and
+        # printouts are created if any of them are outside.
+        #test_outside_triangle(X_accum)
+        
+        #######################################################################
+        
         # Plot optimum vs BO rounds.
         df_optima_wide, df_optima_long = create_wide_and_long_df(optima,
                                                                  'Optimum $I_c$ (px$\cdot$h)',
@@ -618,7 +636,7 @@ for m in range(len(dates_list)):
                 regrets_rB[i][j] = regret_rB
             
             n_samples_rB[i] = np.sum(np.sqrt(np.sum((ground_truth_rB - 
-                                                     X_accum_all[-1])**2, 
+                                                     X_accum_all[regret_interm_idx])**2, 
                                                     axis = 1)) < 0.3)
                 
             
@@ -642,7 +660,8 @@ for m in range(len(dates_list)):
                                                color, legend_list[1],
                                                fig_handle = fr,
                                                ground_truth_reference=ground_truth_reference,
-                                               ylim = 0.6, ylog = False)
+                                               ylim = 1.2, ylog = False,
+                                               xlim = regret_interm_idx)
         
         if (to_same_plot is False) and save_figs:
             
@@ -661,20 +680,13 @@ for m in range(len(dates_list)):
         print(rA_found.astype(int).std())
         
         print('Number of samples from region B: ', np.mean(n_samples_rB))
-        n_samples = X_accum_all[-1].shape[0]
+        n_samples = X_accum_all[regret_interm_idx].shape[0]
+        prop_samples_rB_mean = np.mean(n_samples_rB)/n_samples
+        prop_samples_rB_std = np.std(n_samples_rB)/n_samples
         print('Proportion of samples from region B: ', 
-              np.mean(n_samples_rB)/n_samples)
+              prop_samples_rB_mean, prop_samples_rB_std)
         
-        current_fig, legend_list[3] = create_barplot(rA_found, name_in_legend,
-                                                     color, legend_list[3],
-                                                     fig_handle = fb)
-        
-        if (to_same_plot is False) and save_figs:
-            
-            plt.gcf().savefig(figure_filenames[3] + '.pdf', transparent = True)
-            plt.gcf().savefig(figure_filenames[3] + '.svg', transparent = True)
-            plt.gcf().savefig(figure_filenames[3] + '.png', dpi=300)
-        
+                
         regrets_interm_mean.append(np.mean(
             df_regrets_wide['Regret' + str(regret_interm_idx)]))
         regrets_interm_std.append(np.std(
@@ -799,3 +811,32 @@ plot_ho(regrets_interm_mean,
         n_humans_mean, c_eigs, c_exclzs, c_grads, jitters, len(hyperparams_eig), 
         len(hyperparams_exclz), bo_params)
 
+
+
+#current_fig, legend_list[3] = create_barplot(rA_found, name_in_legend,
+#                                             color,
+#                                             fig_handle = fb)
+prop_samples_rB_mean = [0.173,0.004,0.006] # 150 rounds
+prop_samples_rB_std = [0.2919,0.012,0.006] # 150 rounds
+
+prop_samples_rB_mean = [0.173,0.005,0.02] # 100 rounds
+prop_samples_rB_std = [0.276,0.012,0.01] # 100 rounds
+current_fig, legend_list[3] = create_barplot(prop_samples_rB_mean, 
+                                             prop_samples_rB_std,
+                                             name_in_legend,
+                                             color,
+                                             fig_handle = fb,
+                                             ylabel = r'$N_{low}$ $_{quality}$ / $N_{all}$',
+                                             figname = folder + 'Prop_low_quality')
+
+#[0.2345, 0.0035, 0.018]#[0.53, 0.87, 0.83]#[0.6, 1, 0.9]#[0.367, 0.833, 0.633]#
+#e = [0.3065, 0.00546, 0.056]
+#plt.ylabel('$N_{low quality samples}/N_{all}')
+#plt.xlabel('Human queried')
+
+
+if (to_same_plot is False) and save_figs:
+    
+    plt.gcf().savefig(figure_filenames[3] + '.pdf', transparent = True)
+    plt.gcf().savefig(figure_filenames[3] + '.svg', transparent = True)
+    plt.gcf().savefig(figure_filenames[3] + '.png', dpi=300)

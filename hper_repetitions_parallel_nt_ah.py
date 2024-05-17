@@ -24,7 +24,7 @@ from tqdm.contrib.concurrent import process_map
 import tqdm
 import time
 
-import logging
+#import logging
 
 from functools import partial
 
@@ -154,9 +154,9 @@ def repeated_tests(m, starting_point_candidates):
 
     print(' ', end='', flush=True)
     
-    c_eig = [1]#[0.75]  # Expected information gain.
+    c_eig = [0.95]#[1]#[0.75]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [20]#[20]
+    c_exclz = [15]#[20]#[20]
     # Gradient limit. When the number is higher, the criterion picks less points. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
     c_g = list(cg(np.array([0.8])))#list(cg(np.array([0.6])))
 
@@ -171,18 +171,18 @@ def repeated_tests(m, starting_point_candidates):
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.1]#[0.01, 0.1]
+    jitters = [0.01, 0.1]#[0.01, 0.1]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20231126-DBG-noisytarget-noiselesshuman8/' #'./Results/20230829-noisytarget-noiselesshuman/'
+    folder = './Results/20240402-newnoisytarget-noiselesshuman/' #'./Results/20230829-noisytarget-noiselesshuman/'
     ground_truth = [0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
-                 'n_rounds': 100, # Number of rounds in one BO.
+    bo_params = {'n_repetitions': 10, # Repetitions of the whole BO process.
+                 'n_rounds': 30, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
@@ -196,7 +196,7 @@ def repeated_tests(m, starting_point_candidates):
     # Give False if you don't want to save the figures.
     save_figs = False
     
-    log_progress = True
+    log_progress = False
     
     #A I tried with seed = None.
     
@@ -281,16 +281,16 @@ def repeated_tests(m, starting_point_candidates):
             folder, bo_params, acq_fun_descr, df_data_coll_descr,
             fetch_file_date=fetch_file_date, m=m)
         
-        logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
-                            level=21, format='%(asctime)s - %(levelname)s - %(message)s')
+        #logging.basicConfig(filename= triangle_folder[0:-1] + '_log.txt', 
+        #                    level=21, format='%(asctime)s - %(levelname)s - %(message)s')
         
-        if log_progress is False:
+        #if log_progress is False:
+        #    
+        #    logging.disable(logging.CRITICAL)
             
-            logging.disable(logging.CRITICAL)
-            
-        logging.log(31, "Starting method " + str(m))
+        #logging.log(31, "Starting method " + str(m))
                 
-        logging.log(21, 'Jitter in reps: ' + str(acq_fun_params['jitter']))
+        #logging.log(21, 'Jitter in reps: ' + str(acq_fun_params['jitter']))
 
         
         # Set figure style.
@@ -318,7 +318,7 @@ def repeated_tests(m, starting_point_candidates):
                 message = ('\n\nInit points method ' + str(m) + 
                              ',  repetition ' + str(i) + ':\n' +
                       str(all_starting_points[i]))
-                logging.info(message)
+                #logging.info(message)
 
             for i in range(bo_params['n_repetitions']):
 
@@ -378,7 +378,7 @@ def repeated_tests(m, starting_point_candidates):
                 
                 message = 'Method ' + str(m) + ', repetition ' + str(i)
                 print(message)
-                logging.info(message)
+                #logging.info(message)
 
                 # Save results after all repetitions have been done but also two
                 # times in between if the total number of repetitions is large.
@@ -549,7 +549,7 @@ if __name__ == "__main__":
     
 
     # Number of methods to be tested.
-    m_total = 4
+    m_total = 2
     
     # Create a list of seeds for repetitions (increase max_reps if you need
     # more repetitions than the current max_rep value is). Every method will

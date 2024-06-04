@@ -286,7 +286,8 @@ def fill_ternary_grid(mean, std, GP_model, points, y_train_data = None):
         
     return mean, std
 
-def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points, y_train_data = None):
+def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points, 
+                       y_train_data = None, scale_acq = True):
     
     for i in range(rounds):
         
@@ -299,8 +300,15 @@ def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points, y_train_data = 
         mean[i], std[i] = fill_ternary_grid(mean[i], std[i], BO_batch[i].model.model, points, y_train_data = y_t)
         
         acq_i=BO_batch[i].acquisition.acquisition_function(points)
-        # Scaling the acquisition function to btw 0 and 1.
-        acq[i] = (-acq_i - min(-acq_i))/(max(-acq_i - min(-acq_i)))
+        
+        if scale_acq is True:
+            
+            # Scaling the acquisition function to btw 0 and 1.
+            acq[i] = (-acq_i - min(-acq_i))/(max(-acq_i - min(-acq_i)))
+            
+        else:
+            
+            acq[i] = acq_i
 
     return mean, std, acq    
     
@@ -549,7 +557,8 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
     axis_scale = 60 # Units from px*min to px*hour.
     lims_p = [np.min(posterior_mean)/axis_scale, np.max(posterior_mean)/axis_scale]
     lims_s = [np.min(posterior_std)/axis_scale, np.max(posterior_std)/axis_scale]
-    lims_a = [0,1]#[np.min(acq_normalized), np.max(acq_normalized)]
+    lims_a = [0,1]#[np.min(acq_normalized) - np.abs(np.min(acq_normalized))/100, 
+             # np.max(acq_normalized) + np.abs(np.max(acq_normalized))/100]#[0,1]#
     
     for i in rounds_to_plot:
         
@@ -599,6 +608,7 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
             
     plt.close('all')
     
+    '''
     if minimize is True:
         
         model_optimum = np.min(np.array(posterior_mean), axis = 1)
@@ -634,7 +644,7 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
     plt.title('Model optimum')
     plt.legend(['$x_0$', '$x_1$', '$x_2$'])
     plt.show()
-    
+    '''
     
     '''
     norm = matplotlib.colors.Normalize(vmin=lims[2][0], vmax=lims[2][1])

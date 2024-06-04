@@ -380,6 +380,33 @@ plot_GP(model, Y_train=None, x_points = x, y_points = y_scaled,
     
 
 #########################################################################
+# Stability model normalized to 0 mean unit variance.
+
+#gt_model = load_ground_truth(stability_gt_model).model
+x = gt_model.X.copy()
+y_scaled = (gt_model.Y.copy() - gt_model.Y.mean())/gt_model.Y.std()
+
+# Matern kernel
+kernel = Matern52(input_dim=x.shape[1])#, lengthscale=gt_lengthscale, 
+#                  variance=gt_variance*(y_scaled.std())**2)
+#noise_var = gt_noise_var * (y_scaled.std())**2
+model = GPRegression(x, y_scaled, kernel)#, noise_var = noise_var)
+
+# optimize and plot
+model.optimize_restarts(messages=True,max_f_eval = 100000)
+
+print(y.min(), y_scaled.min())
+print(y.max(), y_scaled.max())
+print(y_scaled.mean(), y_scaled.std())
+
+#plot_GP(model, y_scaled, x_points = x, y_points = y_scaled, 
+#        data_type = 'stability')
+
+plot_GP(model, Y_train=None, x_points = x, y_points = y_scaled, 
+        data_type = 'stability_unscaled')
+    
+#pickle.dump(model, open('./Source_data/stability_model_scale1mean0std', 'wb'))
+#########################################################################
 # Modify by improving region B. Scaled.
 
 x = gt_model.X.copy()
@@ -592,7 +619,6 @@ plot_GP(model, Y_train=None, x_points = x, y_points = y_scaled,
 
 #########################################################################
 # Human stability model.
-human_gt_model_file = './Source_data/visualquality/Yellowness_GPR_model_20220801_2'
 gt_model_human = load_ground_truth(human_gt_model_file)
 gt_lengthscale_human = gt_model_human.kern.lengthscale
 gt_variance_human = gt_model_human.kern.variance
@@ -655,6 +681,77 @@ model.optimize_restarts(messages=True,max_f_eval = 100000)
 
 plot_GP(model, Y_train = None, x_points = x_human, y_points = y_scaled, 
         data_type = 'human')
-    
+
+print(y_scaled.min())
+print(y_scaled.max())
+print(y_scaled.mean(), y_scaled.std())
 
 #pickle.dump(model_human, open('./Source_data/visualquality/human_model_scale0to1', 'wb'))
+
+#########################################################################
+# Human model scaled to 0 mean unit variance.
+
+create_ternary_grid(step = 0.005)
+
+y_human = gt_model_human.Y.copy()
+x_human = gt_model_human.X.copy()
+
+y_scaled = (y_human.copy() - y_human.mean())/y_human.std()
+
+# RBF kernel
+kernel = RBF(input_dim=x.shape[1])#, lengthscale=gt_lengthscale_human, 
+#                  variance=gt_variance_human*(y_scaled.std())**2)
+#noise_var = gt_noise_var_human * (y_scaled.std())**2
+model = GPRegression(x_human, y_scaled, kernel)#, noise_var = noise_var)
+
+
+# optimize and plot
+model.optimize_restarts(messages=True,max_f_eval = 100000)
+
+plot_GP(model, Y_train = None, x_points = x_human, y_points = y_scaled, 
+        data_type = 'human')
+
+print(y_scaled.min())
+print(y_scaled.max())
+print(y_scaled.mean(), y_scaled.std())
+
+#pickle.dump(model, open('./Source_data/visualquality/human_model_scale0mean1std', 'wb'))
+
+
+#########################################################################
+# Imaginary human model that resembles stability model and is scaled 
+# scaled to 0 mean unit variance.
+
+y_human = gt_model.Y.copy() # Stability data!
+x_human = gt_model.X.copy()
+
+#y_scaled = (y_human.copy() - y_human.mean())/y_human.std()
+y_scaled = y_human.copy()
+            
+# Force region B to look bad.
+
+lim = 0.7
+idx = x[:,0] > lim
+scale = 3.5#np.min(y)/np.min(y[idx])/2
+
+y_scaled[idx, 0] = y_scaled[idx, 0] * scale
+y_scaled = (y_scaled - y_scaled.mean()) / y_scaled.std()
+
+# RBF kernel
+kernel = RBF(input_dim=x.shape[1])#, lengthscale=gt_lengthscale_human, 
+#                  variance=gt_variance_human*(y_scaled.std())**2)
+#noise_var = gt_noise_var_human * (y_scaled.std())**2
+model = GPRegression(x_human, y_scaled, kernel)#, noise_var = noise_var)
+
+
+# optimize and plot
+model.optimize_restarts(messages=True,max_f_eval = 100000)
+
+plot_GP(model, Y_train = None, x_points = x_human, y_points = y_scaled, 
+        data_type = 'human')
+
+print(y_scaled.min())
+print(y_scaled.max())
+print(y_scaled.mean(), y_scaled.std())
+
+#pickle.dump(model, open('./Source_data/visualquality/human_model_scale0mean1std_higher_corrwithstability', 'wb'))

@@ -42,8 +42,9 @@ def fill_ternary_grids(mean, std, p, rounds, df_models, points, beta, midpoint, 
 
     return mean, std, p
 
-def plotDF(rounds, materials, df_models, df_data, df_variable,
-           lengthscale, variance, beta, midpoint, limit_file_number = True,
+def plotDF(rounds, materials, df_models, df_data_accum, df_variable,
+           #lengthscale, variance, noise_variance, 
+           beta, midpoint, limit_file_number = True,
            time_str = None, results_folder = './Results/'):
     
            
@@ -52,6 +53,8 @@ def plotDF(rounds, materials, df_models, df_data, df_variable,
     points, gp_mean, gp_std, p, time_now, results_dir, rounds_to_plot = init_plots(
         rounds, limit_file_number, time_str, results_folder)
     
+    '''
+    # Collect data fusion data accumulated by each round.
     df_data_cumulative = []
     for i in range(rounds):
                 
@@ -62,15 +65,25 @@ def plotDF(rounds, materials, df_models, df_data, df_variable,
             df_data_cumulative.append(pd.concat([df_data[i], 
                                                  df_data_cumulative[-1]],
                                                 ignore_index = True))
-        
         if df_models[i] is None:
             
+            Exception('The current implementation of plotting data fusion requires a model. Provide data fusion models.')
+     
             # Train model.
             df_models[i] = GP_model(df_data_cumulative[i],
-                                    df_variable,
-                                    lengthscale, variance,
+                                    data_fusion_target_variable = df_variable,
+                                    lengthscale = lengthscale, 
+                                    variance = variance,
+                                    noise_variance = None,
                                     materials)
-
+            
+            current_df_model = GP_model(data_fusion_XZ_accum[k],
+                                        data_fusion_target_variable = acq_fun_params['df_target_var'],
+                                        lengthscale = acq_fun_params['gp_lengthscale'],
+                                        variance = acq_fun_params['gp_variance'],
+                                        noise_variance = None,
+                                        data_fusion_input_variables = acq_fun_params['df_input_var'])
+    '''
 
     # Fill in the lists with surfaces to plot.
     gp_mean, gp_std, p = fill_ternary_grids(gp_mean, gp_std, p, rounds, df_models,
@@ -87,14 +100,14 @@ def plotDF(rounds, materials, df_models, df_data, df_variable,
     axis_scale = 1
     # These could be set based on data but then contour levels (and their ticks
     # are hard to calculate.
-    lims_m = [-1.5,1.5]#[np.min(gp_mean)/axis_scale, np.max(gp_mean)/axis_scale]
-    lims_s = [-1.5,1.5]#[np.min(gp_std)/axis_scale, np.max(gp_std)/axis_scale]
+    lims_m = [0, 1]#[-1.5,1.5]#[np.min(gp_mean)/axis_scale, np.max(gp_mean)/axis_scale]
+    lims_s = [0,0.5]#[np.min(gp_std)/axis_scale, np.max(gp_std)/axis_scale]
     lims_p = [0,1]
     
     for i in rounds_to_plot:
         
-        data_x = df_data_cumulative[i].loc[:,materials].values
-        data_y = df_data_cumulative[i].iloc[:,-1].values/axis_scale
+        data_x = df_data_accum[i].loc[:,materials].values
+        data_y = df_data_accum[i].iloc[:,-1].values/axis_scale
         
         if data_x.shape[0] == 0:
             

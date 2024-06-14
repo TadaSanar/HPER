@@ -297,7 +297,9 @@ def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points,
             y_t = y_train_data[i]
         
         # : Here the posterior mean and std_dv+acquisition function are calculated.
-        mean[i], std[i] = fill_ternary_grid(mean[i], std[i], BO_batch[i].model.model, points, y_train_data = y_t)
+        mean[i], std[i] = fill_ternary_grid(mean[i], std[i], 
+                                            BO_batch[i].model.model, points, 
+                                            y_train_data = y_t)
         
         acq_i=BO_batch[i].acquisition.acquisition_function(points)
         

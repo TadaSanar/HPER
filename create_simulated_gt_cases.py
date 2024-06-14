@@ -378,7 +378,7 @@ print(y.max(), y_scaled.max())
 plot_GP(model, Y_train=None, x_points = x, y_points = y_scaled, 
         data_type = 'stability_unscaled')
     
-
+#pickle.dump(model, open('./Source_data/stability_gt_model_GPR', 'wb'))
 #########################################################################
 # Stability model normalized to 0 mean unit variance.
 

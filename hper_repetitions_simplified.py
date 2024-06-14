@@ -27,9 +27,15 @@ import time
 import GPyOpt
 import GPy
 
+import psutil
+
 #import logging
 
 from functools import partial
+
+# Reduces memory leakage with Spyder IDE. Otherwise not necessary.
+import matplotlib
+matplotlib.interactive(False)
 
 def load_GP_model(path_model):
     """
@@ -159,9 +165,12 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr,
                         '_noisetarget' + str(bo_params['noise_target']) +
                         '_acq' + acq_fun_descr + df_data_coll_descr)
 
-    pickle_variable_names = ['optima', 'X_accum', 'Y_accum', 'data_fusion_data',
-                             'BOmainresults', 'BO_lengthscales', 'BO_variances', 'BO_max_gradients']
-
+    #pickle_variable_names = ['optima', 'X_accum', 'Y_accum', 'data_fusion_data',
+    #                         'BOmainresults', 'BO_lengthscales', 'BO_variances', 'BO_max_gradients']
+    pickle_variable_names = ['optima', 'X_accum', 'Y_accum', 
+                             'surrogate_model_params', 'data_fusion_params',
+                             'BOobjects_suggs']
+    
     pickle_filenames = []
     for i in pickle_variable_names:
         pickle_filenames.append(filename_prefix + '_' + i + filename_postfix)
@@ -178,22 +187,79 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr,
     return pickle_filenames, figure_filenames, t_folder
 
 
-def modify_filename_nreps(filename, new_value, param_to_modify_str='_nreps'):
+def modify_filename(filename, new_value, param_to_modify_str='_nreps'):
 
     # Has been tested only for nreps.
 
     idx0 = filename.find(param_to_modify_str) + len(param_to_modify_str)
-    idx1 = filename[idx0::].find('_') + idx0
+    idx1 = idx0 + filename[idx0::].find('_')
 
     new_filename = filename[0:idx0] + str(new_value) + filename[idx1::]
 
     return new_filename
 
+def set_bo_settings(bo_params, acquisition_function, jitter, 
+                    data_fusion_property, df_data_coll_method, noise_df, 
+                    c_grad, c_e):
+    
 
-def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
-                   gt_model_human):
+    # Set acquisition function parameters (for this, you need to determine
+    # if data fusion acquisition function is used or not.)
+    
+    if data_fusion_property is None:
+        
+        optional_data_fusion_settings = None
+        
+    else:
+        
+        optional_data_fusion_settings = {'df_target_property_name': data_fusion_property,
+                                         'df_input_variables': bo_params['materials']
+                                         }
+        
+    acq_fun_params = acq_param_builder(acquisition_function,
+                                       optional_data_fusion_settings = optional_data_fusion_settings,
+                                       #data_fusion_property=data_fusion_property,
+                                       #data_fusion_input_variables=bo_params['materials'],
+                                       #data_fusion_model = gt_model_human,
+                                       optional_acq_settings = {'jitter': jitter}
+                                       )
+    
+    acq_fun_descr = acq_fun_param2descr(
+        acquisition_function, acq_fun_params=acq_fun_params)
+    
+    # Set data fusion data collection parameters.
+    
+    if data_fusion_property is None:
+
+        df_data_coll_params = df_data_coll_param_builder()
+
+    elif (df_data_coll_method == 'model_all') or (df_data_coll_method == 'model_none'):
+
+        df_data_coll_params = df_data_coll_param_builder(
+            df_method=df_data_coll_method, noise_df = noise_df)
+
+    else:
+
+        df_data_coll_params = df_data_coll_param_builder(df_method=df_data_coll_method,
+                                                         gradient_param=c_grad,
+                                                         exclusion_param=c_e,
+                                                         noise_df = noise_df)
+
+    df_data_coll_descr = df_data_coll_method_param2descr(
+        df_data_coll_params)
+        
+    return acq_fun_descr, acq_fun_params, df_data_coll_descr, df_data_coll_params
+
+def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
+                   #gt_model_human):
 
     print(' ', end='', flush=True)
+    
+    # Getting % usage of virtual_memory ( 3rd field)
+    print('RAM memory % used:', psutil.virtual_memory()[2])
+    # Getting usage of virtual_memory in GB ( 4th field)
+    print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000, '\n')
+
     
     c_eig = [0.95]#[1]#[0.75]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
@@ -219,11 +285,11 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240528/Comp_to_Emma/Noise100/'
+    folder = './Results/20240613/Comp_to_Emma/Noise100/ARDoff/'
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 50, # Repetitions of the whole BO process.
-                 'n_rounds': 150, # Number of rounds in one BO.
+    bo_params = {'n_repetitions': 10, # Repetitions of the whole BO process.
+                 'n_rounds': 250, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
@@ -237,7 +303,7 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
     # Give False if you don't want to save the figures.
     save_figs = True
     # Give False if you don't want to save disk space while saving the data.
-    save_disk_space = False
+    save_disk_space = True
     
     log_progress = False
     
@@ -248,7 +314,10 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
         if (m % n_hpars) == 0:
 
             data_fusion_property = None
+            df_data_coll_method = None
             acquisition_function = 'EI'
+            c_grad = None
+            c_e = None
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
             color = sn.color_palette()[0]
@@ -258,6 +327,8 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
             data_fusion_property = 'quality'
             df_data_coll_method = 'model_all'
             acquisition_function = 'EI_DFT'
+            c_grad = None
+            c_e = None
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
             color = sn.color_palette()[2]
@@ -295,51 +366,9 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
         ###############
         # Typically, one does not need to modify these inputs.
         
-        # Set acquisition function parameters (for this, you need to determine
-        # if data fusion acquisition function is used or not.)
-        
-        if data_fusion_property is None:
-            
-            optional_data_fusion_settings = None
-            
-        else:
-            
-            optional_data_fusion_settings = {'df_target_property_name': data_fusion_property,
-                                             'df_input_variables': bo_params['materials']
-                                             }
-            
-        acq_fun_params = acq_param_builder(acquisition_function,
-                                           optional_data_fusion_settings = optional_data_fusion_settings,
-                                           #data_fusion_property=data_fusion_property,
-                                           #data_fusion_input_variables=bo_params['materials'],
-                                           #data_fusion_model = gt_model_human,
-                                           optional_acq_settings = {'jitter': jitter}
-                                           )
-        
-        acq_fun_descr = acq_fun_param2descr(
-            acquisition_function, acq_fun_params=acq_fun_params)
-        
-        # Set data fusion data collection parameters.
-        
-        if data_fusion_property is None:
-
-            df_data_coll_params = df_data_coll_param_builder()
-
-        elif (df_data_coll_method == 'model_all') or (df_data_coll_method == 'model_none'):
-
-            df_data_coll_params = df_data_coll_param_builder(
-                df_method=df_data_coll_method, noise_df = noise_df)
-
-        else:
-
-            df_data_coll_params = df_data_coll_param_builder(df_method=df_data_coll_method,
-                                                             gradient_param=c_grad,
-                                                             exclusion_param=c_e,
-                                                             noise_df = noise_df)
-
-        df_data_coll_descr = df_data_coll_method_param2descr(
-            df_data_coll_params)
-        
+        acq_fun_descr, acq_fun_params, df_data_coll_descr, df_data_coll_params = set_bo_settings(
+            bo_params, acquisition_function, jitter, data_fusion_property, 
+            df_data_coll_method, noise_df, c_grad, c_e)
         
         # Create result folders and build filenames for result files.
         pickle_filenames, figure_filenames, triangle_folder = build_filenames(
@@ -364,14 +393,16 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
         ###############
 
         all_starting_points = []
-        results = []
+        bo_examples = []
         optima = []
+        model_optima = []
         X_accum_all = []
         Y_accum_all = []
-        data_fusion_data_all = []
-        lengthscales_all = []
-        variances_all = []
-        max_gradients_all = []
+        data_fusion_params_all = []
+        surrogate_model_params_all =  []
+        #lengthscales_all = []
+        #variances_all = []
+        #max_gradients_all = []
 
         if fetch_old_results == False:
 
@@ -414,7 +445,7 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
 
                 print(message)
                                 
-                next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models = bo_sim_target(
+                next_suggestions, optimum, model_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_objects = bo_sim_target(
                     targetprop_data_source = gt_model_targetprop,
                     human_data_source = gt_model_human,
                     #bo_ground_truth_model_path = './Source_data/stability_model_GPyHomoscedastic', #'./Source_data/stability_model_improved_region_B', #
@@ -428,25 +459,26 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
                     no_plots=no_plots, results_folder=triangle_folder,
                     noise_target = bo_params['noise_target'],
                     seed = None)#Am)
-
-                # All ouputs saved only from the first two repetitions to save
-                # disk space.
-                if (save_disk_space is False) or (i < 2):
-                    results.append([bo_models, next_suggestions])
-
-                optima.append(optimum[:, -1])
-
+                
+                # Getting % usage of virtual_memory ( 3rd field)
+                print('BO ended. \n')
+                print('RAM memory % used:', psutil.virtual_memory()[2])
+                
+                
+                optima.append(optimum)
+                model_optima.append(model_optimum)
+                
                 X_accum_all.append(X_accum)
                 Y_accum_all.append(Y_accum)
 
                 if data_fusion_params is not None:
-                    data_fusion_data_all.append(
-                        data_fusion_params['df_data_rounds'])
-
-                lengthscales_all.append(surrogate_model_params['lengthscales'])
-                variances_all.append(surrogate_model_params['variances'])
-                max_gradients_all.append(
-                    surrogate_model_params['max_gradients'])
+                    data_fusion_params_all.append(data_fusion_params)#['df_data_rounds'])
+                
+                surrogate_model_params_all.append(surrogate_model_params)
+                #lengthscales_all.append(surrogate_model_params['lengthscales'])
+                #variances_all.append(surrogate_model_params['variances'])
+                #max_gradients_all.append(
+                #    surrogate_model_params['max_gradients'])
                 
                 if ddcp is None:
                     
@@ -458,35 +490,54 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
 
                 print(message)
                 #logging.info(message)
+                
+                # Example BO objects saved only from the first two repetitions
+                # to save disk space.
+                if (save_disk_space is False) or (i < 2):
+                    
+                    bo_examples.append([bo_objects])
+                    
+                    filename = modify_filename(pickle_filenames[-1], i+1)
 
-                # Save results after all repetitions have been done but also two
-                # times in between if the total number of repetitions is large.
+                    dbfile = open(filename, 'ab')
+                    pickle.dump(bo_examples, dbfile)
+                    dbfile.close()
+                    
+                    if (save_disk_space is True) and (i == 1):
+                        
+                        # The variable is not needed anymore and it tends to be large so let's delete it.
+                        del bo_examples
+                        
+                # Save other results after all repetitions have been done but
+                # also two times in between if the total number of repetitions
+                # is large.
                 if (i == (bo_params['n_repetitions']-1)) or (
                         (bo_params['n_repetitions'] > 15) and
                         (np.remainder((i+1),
                                       int(np.floor(bo_params['n_repetitions']/3)))
                          == 0)):
 
-                    pickle_variables = [optima, X_accum_all, Y_accum_all,
-                                        data_fusion_data_all, results, lengthscales_all,
-                                        variances_all, max_gradients_all]
+                    pickle_variables = ({'optimal_samples': optima,
+                                         'model_optima': model_optima}, 
+                                        X_accum_all, Y_accum_all,
+                                        surrogate_model_params_all, 
+                                        data_fusion_params_all) #, results, lengthscales_all,
+                                        #variances_all, max_gradients_all]
 
                     # Save the results as an backup
                     for j in range(len(pickle_variables)):
-
-                        if i < bo_params['n_repetitions']:
-
-                            # Temporary filename for temp run safe-copies.
-                            filename = modify_filename_nreps(
-                                pickle_filenames[j], i+1)
-
-                        else:
-
-                            filename = pickle_filenames[j]
+                        
+                        # Temporary filename for temp run safe-copies.
+                        filename = modify_filename(pickle_filenames[j], i+1)
 
                         dbfile = open(filename, 'ab')
                         pickle.dump(pickle_variables[j], dbfile)
                         dbfile.close()
+                        
+                # Getting % usage of virtual_memory ( 3rd field)
+                print('RAM memory % used:', psutil.virtual_memory()[2])
+                print('Start next repeat...\n')
+                
 
         else:
 
@@ -500,19 +551,23 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
                 pickle_variables.append(pickle.load(dbfile))
                 dbfile.close()
 
-            optima = pickle_variables[0]
+            optima = pickle_variables[0]['optimal_samples']
+            model_optima = pickle_variables[0]['model_optima']
             X_accum_all = pickle_variables[1]
             Y_accum_all = pickle_variables[2]
-            data_fusion_data_all = pickle_variables[3]
-            results = pickle_variables[4]
-            lengthscales_all = pickle_variables[5]
-            variances_all = pickle_variables[6]
-            max_gradients_all = pickle_variables[7]
+            surrogate_model_params_all = pickle_variables[3]
+            data_fusion_params_all = pickle_variables[4]
+            #results = pickle_variables[4]
+            #lengthscales_all = pickle_variables[5]
+            #variances_all = pickle_variables[6]
+            #max_gradients_all = pickle_variables[7]
 
-        optima = np.array(optima)/60
+        # Does not work anymore:        
+        #optima = np.array(optima)
+        #model_optima = np.array(model_optima)/60
         
         n_rounds = bo_params['n_rounds'] #len(Y_accum_all[-1][-1])
-        
+        '''
         # Plot optimum vs number of BO samples collected.
 
         cols = ['Optimum' +
@@ -582,20 +637,20 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
 
             n_df_points = []
             # Repeats
-            for i in range(len(data_fusion_data_all)):
+            for i in range(len(data_fusion_params_all)):
 
                 n_df_points.append([])
 
                 # BO rounds.
-                for j in range(len(data_fusion_data_all[i])):
+                for j in range(len(data_fusion_params_all[i])):
 
                     if j == 0:
                         n_df_points[i].append(
-                            data_fusion_data_all[i][j].shape[0])
+                            data_fusion_params_all[i][j].shape[0])
 
                     else:
                         n_df_points[i].append(
-                            data_fusion_data_all[i][j].shape[0]+n_df_points[i][-1])
+                            data_fusion_params_all[i][j].shape[0]+n_df_points[i][-1])
 
             cols = ['N_data_fusion_points' +
                     x for x in list(map(str, range(bo_params['n_rounds'])))]
@@ -620,8 +675,18 @@ def repeated_tests(m, starting_point_candidates, gt_model_targetprop,
                 plt.gcf().savefig(figure_filenames[2] + '.png', dpi=300)
 
             plt.show()
-
-    del next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, bo_models
+            
+            '''
+    
+        # Getting % usage of virtual_memory ( 3rd field)
+        print('RAM memory % used:', psutil.virtual_memory()[2])
+        # Getting usage of virtual_memory in GB ( 4th field)
+        print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000, '\n')
+        print('Clearing variables...\n')
+        
+        del next_suggestions, optimum, model_optimum, X_rounds, Y_rounds
+        del X_accum, Y_accum, surrogate_model_params, data_fusion_params
+        del pickle_variables
 
 
 if __name__ == "__main__":
@@ -629,7 +694,7 @@ if __name__ == "__main__":
     # MAIN SETTINGS FOR HITL BENCHMARKS
     
     # Paths to the GPy GPRegression models that will be used for fetching source data.
-    path_gtmodel_targetprop = './Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222' # GPy.models.gp_regression.GPRegression
+    path_gtmodel_targetprop = './Source_data/stability_gt_model_GPR'#'./Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222' # GPy.models.gp_regression.GPRegression
     path_gtmodel_humanevals = './Source_data/visualquality/human_model_scale0to1' #'./Source_data/visualquality/Human_GPR_model_20220801' # GPy.models.gp_regression.GPRegression
     
     # Number of methods to be tested.
@@ -676,21 +741,23 @@ if __name__ == "__main__":
         ncpus = mp.cpu_count()
     
     # Load source data models.
+    global gt_model_targetprop
     gt_model_targetprop = load_GP_model(path_gtmodel_targetprop)
-    gt_model_human = load_GP_model(path_gtmodel_humanevals)
-    
+    global gt_model_human
+    gt_model_human= load_GP_model(path_gtmodel_humanevals)
+    '''
     # This is a serial version of the code.
     for i in range(m_total):
         
-        repeated_tests(i, starting_point_candidates = init_points,
-                       gt_model_targetprop = gt_model_targetprop,
-                       gt_model_human = gt_model_human)
+        repeated_tests(i, starting_point_candidates = init_points)#,
+                       #gt_model_targetprop = gt_model_targetprop,
+                       #gt_model_human = gt_model_human)
     '''    
     # This is a parallelized version of the code.
     # Create a pool of workers (corresponding to Ncpus)
     with mp.Pool(ncpus) as pool:
         
         r = process_map(partial(repeated_tests,
-                                starting_point_candidates=starting_points),
+                                starting_point_candidates=init_points),
                         range(m_total), max_workers=ncpus)
-    '''
+    

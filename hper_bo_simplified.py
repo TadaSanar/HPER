@@ -24,7 +24,7 @@ def predict_points(gpmodel, x_points, Y_data=None):
     if type(gpmodel) is GPy.models.gp_regression.GPRegression:
         
         # Prediction output is mean, variance.
-        posterior_mean, posterior_var = gpmodel.predict(x_points)
+        posterior_mean, posterior_var = gpmodel.predict_noiseless(x_points)
         posterior_std = np.sqrt(posterior_var)
         
     elif type(gpmodel) is GPyOpt.models.gpmodel.GPModel:
@@ -55,10 +55,23 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
     # Predictions.
     posterior_mean, posterior_var = predict_points(
         gpmodel, x_points, Y_data=Y_data)
-
+    
+    if type(gpmodel) is GPy.models.gp_regression.GPRegression:
+        
+        gaussian_noise_variance = gpmodel.Gaussian_noise.variance
+        
+    elif type(gpmodel) is GPyOpt.models.gpmodel.GPModel:
+        
+        gaussian_noise_variance = gpmodel.model.Gaussian_noise.variance
+        
+    if Y_data is not None:
+        
+        # Scale back.
+        gaussian_noise_variance = gaussian_noise_variance * np.var(Y_data)
+        
     # Adding Gaussian noise to the mean predictions.
     posterior_mean_noisy = np.random.normal(
-        posterior_mean, np.sqrt(posterior_var)*noise_level)
+        posterior_mean, np.sqrt(gaussian_noise_variance)*noise_level)#np.sqrt(posterior_var)*noise_level)
     
     #logging.log(21, 'Noise level: ' + str(noise_level))
     #logging.log(21, 'Posterior mean: ' + str(posterior_mean))
@@ -151,7 +164,8 @@ def GP_model(data_fusion_data, data_fusion_target_variable = 'dGmix (ev/f.u.)',
                                                      warning=False)
                 
             # optimize
-            model.optimize_restarts(max_iters = 1000, num_restarts=5)
+            model.optimize_restarts(max_iters = 1000, num_restarts=2, 
+                                    verbose = False)
             
             #message = ('Human Gaussian noise variance in model output: ' + 
             #           str(model.Gaussian_noise.variance[0]))
@@ -936,8 +950,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
 
     return result
 
-def plot_basic(BO_objects, Y_accum, X_accum, optimum, rounds, domain_boundaries, 
-               time_str = None, results_folder = None, 
+def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None, results_folder = None, 
                ref_x = np.array([[0.165, 0.04, 0.79]]), ref_y = 126444, 
                ref_y_std = 106462, saveas = False, hyperpars = None,
                data_fusion_hyperpars = None):
@@ -1029,27 +1042,8 @@ def plot_basic(BO_objects, Y_accum, X_accum, optimum, rounds, domain_boundaries,
             
         plt.show()
         
-        if X_accum[0].shape[1] == 3:
-            
-            ternary = True
-            
-        else:
-            
-            ternary = False
-        
-        x_mins_model = np.full((rounds, X_accum[0].shape[1]), np.nan)
-        y_mins_model = np.full((rounds, 1), np.nan)
-        
-        for i in range(rounds):
-            
-            x_mins_model[i,:], y_mins_model[i,:] = find_minimum(BO_objects[i].model.model, # GPRegression model 
-                                                    Y = Y_accum[i],
-                                                    ternary = ternary, 
-                                                    domain_boundaries = 
-                                                    domain_boundaries)
-            
         plt.figure()
-        plt.plot(range(rounds), y_mins_model)
+        plt.plot(range(rounds), model_optimum[:, -1])
         plt.plot((0, rounds), [ref_y, ref_y], 'k--', linewidth = 0.5)
         plt.xlabel('Round')
         plt.ylabel('Target value')
@@ -1068,9 +1062,9 @@ def plot_basic(BO_objects, Y_accum, X_accum, optimum, rounds, domain_boundaries,
         plt.show()
                 
         plt.figure()
-        plt.plot(range(rounds), np.sum(x_mins_model, axis = 1), 'k', 
+        plt.plot(range(rounds), np.sum(model_optimum[:, 0:-1], axis = 1), 'k', 
                  linewidth = 0.5)
-        plt.plot(range(rounds), x_mins_model)
+        plt.plot(range(rounds), model_optimum[:, 0:-1])
         
         for i in range(ref_x.shape[1]):
             
@@ -1210,6 +1204,35 @@ def find_minimum(model, Y = None, ternary = True, domain_boundaries = [0.0, 1.0]
 
     return x_min, y_min
         
+def create_optima_arrays(BO_objects, X_accum, Y_accum, rounds, materials,
+                              ternary, domain_boundaries):
+    
+    # Minimum value vs rounds (from the samples).
+    optimum = np.full((rounds, len(materials) + 1), np.nan)
+    # Minimum value vs rounds (from the model).
+    model_optimum = np.full((rounds, len(materials) + 1), np.nan)    
+    
+    for i in range(rounds):
+
+        idx = np.argmin(Y_accum[i], axis=0)
+        opt = Y_accum[i][idx, 0]
+        loc = X_accum[i][idx, :]
+
+        optimum[i, 0:len(materials)] = loc
+        optimum[i, -1] = opt
+
+    
+    # Model optimum for unconstrained and constrained space.
+    for i in range(rounds):
+        
+        model_optimum[i,0:-1], model_optimum[i,-1] = find_minimum(BO_objects[i].model.model, # GPRegression model 
+                                                    Y = Y_accum[i],
+                                                    ternary = ternary, 
+                                                    domain_boundaries = 
+                                                    domain_boundaries)
+        
+    return optimum, model_optimum
+
 def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_unscaled_ydata-20190730172222',
                   targetprop_data_source,
                   human_data_source = None,
@@ -1218,7 +1241,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                   acquisition_function='EI', acq_fun_params=None,
                   df_data_coll_params=None, no_plots=False,
                   results_folder='./Results/', noise_target = 1,
-                  seed = None):
+                  seed = None, save_memory = True):
     '''
     Simulates a Bayesian Optimization cycle using the Gaussian Process
     Regression model given in bo_ground_truth_model_path as the ground truth for
@@ -1345,17 +1368,32 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
             exact_feval = True
         else:
             exact_feval = False
-
+    
     # Material composition needs to sum up to 1 within the accuracy defined in
     # 'composition_total'.
-    c0, c1 = build_constraint_str(materials, composition_total)
-
-    # Search constraints.
-    constraints = []
-    for k in range(rounds):
-
-        constraints.append([{'name': 'constr_1', 'constraint': c0},
-                            {'name': 'constr_2', 'constraint': c1}])
+    if composition_total is None:
+        
+        constraints = None
+        ternary = False
+        
+    elif (np.isclose(composition_total[1], 1, 
+                  atol = np.abs(composition_total[1]-composition_total[0])) == True):
+        
+        c0, c1 = build_constraint_str(materials, composition_total)
+        
+        # Search constraints.
+        constraints = []
+        for k in range(rounds):
+    
+            constraints.append([{'name': 'constr_1', 'constraint': c0},
+                                {'name': 'constr_2', 'constraint': c1}])
+            
+        ternary = True
+        
+    else:
+        
+        ternary = True
+        raise Exception('The constraint requested has not been implemented or tested.')
 
     # Boundaries of the search domain.
     bounds = []
@@ -1387,6 +1425,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
     # BO objects for each BO round (fitted using data acquired by the round in
     # question).
     BO_objects = [None for j in range(rounds)]
+    
     
     if simulated_bo == False:
 
@@ -1509,9 +1548,12 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                     
                     current_df_model.optimize_restarts(messages=False, 
                                                        max_iters = 1000,
-                                                       num_restarts = 2)
+                                                       num_restarts = 2, 
+                                                       verbose = False)
                 
-            data_fusion_models[k] = current_df_model.copy()
+            if (save_memory is False) or (k<2):
+                
+                data_fusion_models[k] = current_df_model.copy()
             
             # Add the model in any case to the acquisition parameters.
             acq_fun_params['df_model'] = current_df_model.copy()
@@ -1534,7 +1576,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                                                             #optimize_restarts = 10,#10,#2,
                                                             #max_iters = 2000,#1000,
                                                             exact_feval = exact_feval,
-                                                            ARD=True,
+                                                            ARD=False,
                                                             kernel = None #GPy.kern.RBF#input_dim=3, ARD = True)#, 
                                                                                     # variance = 54468035, 
                                                                                     # lengthscale = 0.08)
@@ -1574,9 +1616,11 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                 data_fusion_XZ_accum, df_data_coll_params, acq_fun_params,
                 x_next, current_surrogate_model_params, materials, bounds, k)
             
-            data_fusion_lengthscales[k] = data_fusion_models[k].kern.lengthscale.values
-            data_fusion_variances[k] = data_fusion_models[k].kern.variance[0]
-            data_fusion_gaussian_noises[k] = data_fusion_models[k].Gaussian_noise.variance[0]
+            data_fusion_lengthscales[k] = current_df_model.kern.lengthscale.values
+            data_fusion_variances[k] = current_df_model.kern.variance[0]
+            data_fusion_gaussian_noises[k] = current_df_model.Gaussian_noise.variance[0]
+            
+        
 
     ###########################################################################
     # DATA TREATMENT, PLOTTING, SAVING
@@ -1588,20 +1632,6 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
     # dbfile = open('Backup-model-{date:%Y%m%d%H%M%S}'.format(date=datetime.datetime.now()), 'ab')
     # pickle.dump([BO_batch, x_next_df, x_next, X_rounds, Y_rounds], dbfile)
     # dbfile.close()
-
-    # Minimum value vs rounds (from the samples).
-    optimum = np.full((rounds, len(materials) + 1), np.nan)
-    # Minimum value vs rounds (from the model).
-    #mod_optimum = np.full((rounds, len(materials) + 1), np.nan)
-
-    for i in range(rounds):
-
-        idx = np.argmin(Y_accum[i], axis=0)
-        opt = Y_accum[i][idx, 0]
-        loc = X_accum[i][idx, :]
-
-        optimum[i, 0:len(materials)] = loc
-        optimum[i, -1] = opt
 
     surrogate_model_params = {'lengthscales': lengthscales,
                               'variances': variances,
@@ -1621,9 +1651,11 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
     else:
 
         data_fusion_params = None
-
-        
     
+    optimum, model_optimum = create_optima_arrays(BO_objects, X_accum, Y_accum, 
+                                                  rounds, materials, ternary, 
+                                                  domain_boundaries)
+
     if no_plots == False:
 
         time_now = '{date:%Y%m%d%H%M}'.format(date=datetime.datetime.now())
@@ -1662,8 +1694,9 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
             
             
         # Plots that work with any dimensionality.
-        plot_basic(BO_objects, Y_accum, X_accum, optimum, rounds, 
-                   domain_boundaries, time_str = time_now, 
+        plot_basic(Y_accum, X_accum, optimum, 
+                   model_optimum, rounds, 
+                   time_str = time_now, 
                    results_folder = results_folder, saveas = not no_plots,
                    hyperpars = surrogate_model_params,
                    data_fusion_hyperpars = data_fusion_params)
@@ -1686,14 +1719,19 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
     # time.
     next_suggestions = x_next_df.copy()
     optimum = optimum.copy()
-    mod_optimum = None  # mod_optimum.copy()
     X_rounds = X_rounds.copy()
     Y_rounds = Y_rounds.copy()
-    BO_objects = BO_objects.copy()
+    #BO_objects = BO_objects.copy()
     
     #logging.log(21, 'Jitter: ' + str(acq_fun_params['jitter']))
     #logging.log(21, 'Y values: ' + str(Y_rounds))
     
     plt.close()
     
-    return next_suggestions, optimum, mod_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects
+    if (save_memory is True):
+        
+        BO_objects[0:(-1)] = [None] * (len(BO_objects) - 1)
+        
+    
+    
+    return next_suggestions, optimum, model_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects

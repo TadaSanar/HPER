@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.tri as tri
 import datetime
+import GPy
+import GPyOpt
+#from hper_bo_simplified import create_grid, create_ternary_grid, predict_points
 
 #script_dir = os.path.dirname(__file__)
 #results_dir = os.path.join(script_dir, 'Results/')
@@ -20,11 +23,87 @@ import datetime
 #if not os.path.isdir(results_dir):
 #    os.makedirs(results_dir)
 
+def predict_points(gpmodel, x_points, Y_data=None):
+    '''
+    For a GPy GP regression model or GPyOpt GPModel.
+    '''
+    if type(gpmodel) is GPy.models.gp_regression.GPRegression:
+        
+        # Prediction output is mean, variance.
+        posterior_mean, posterior_var = gpmodel.predict_noiseless(x_points)
+        posterior_std = np.sqrt(posterior_var)
+        
+    elif type(gpmodel) is GPyOpt.models.gpmodel.GPModel:
+        
+        # Prediction output is mean, standard deviation.
+        posterior_mean, posterior_std = gpmodel.predict(x_points)
+        posterior_var = (posterior_std)**2
+        
+    # If the model has been trained with already-scaled (zero mean, unit
+    # variance) data, the provided train data 'Y_data' will be used for scaling
+    # the predictions to the correct units.
+    if Y_data is not None:
+        posterior_mean_true_units = posterior_mean * \
+            np.std(Y_data) + np.mean(Y_data)
+        posterior_std_true_units = posterior_std * np.std(Y_data)
+
+        posterior_mean = posterior_mean_true_units
+        posterior_var = posterior_std_true_units**2
+    
+    return posterior_mean, posterior_var
+
+
+
+def create_grid(dim = 3, domain_boundaries = [0.0,1.0], step = 0.005):
+    """
+    Generate a grid for the coordinates of datapoints that represent a 
+    multidimensional cube of data with the desired spacing.
+
+    Parameters
+    ----------
+    dim : int, optional
+        Dimensionality of the datacube. The default is 3.
+    domain_boundaries : [float], optional
+        A list with two elements. The first element is the lower boundary of
+        the domain (inclusive). The second element is the upper boundary of the
+        domain (exclusive). The domain boundaries will be the same for each
+        dimension. The default is [0.0,1.0].
+    step : float, optional
+        Step size for the points in the grid. The default is 0.005.
+
+    Returns
+    -------
+    points : Numpy array
+        Coordinates of the generated points. The shape of the array is
+        (number of points, dim)
+
+    """
+    
+    ### This grid is used for sampling+plotting the posterior mean and std_dv + acq function.
+    a = np.arange(domain_boundaries[0], domain_boundaries[1], step)
+    b = [a for i in range(dim)]
+    
+    grid_temp = np.meshgrid(*b, sparse=False)
+    grid_temp_list = [grid_temp[i].ravel() for i in range(dim)]
+    
+    points = np.transpose(grid_temp_list)
+    
+    return points
+
+def create_ternary_grid(step = 0.005):
+
+    ### This grid is used for sampling+plotting the posterior mean and std_dv + acq function.
+    points = create_grid(step = step)
+    points = points[abs(np.sum(points, axis=1)-1) < (step - step/5)]
+    
+    return points
+
+
 
 def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu_r',
                  cbar_label = '', saveas = None, surf_levels = None,
                  scatter_points=None, scatter_color = None, cbar_spacing = None,
-                 cbar_ticks = None):
+                 cbar_ticks = None, close_figs = False):
 
 
     mpl.rcParams.update({'font.size': 8})
@@ -170,7 +249,15 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         fig.savefig(saveas + '.pdf', transparent = True)
         #fig.savefig(saveas + '.svg', transparent = True)
         #fig.savefig(saveas + '.png', dpi=300)
-    plt.show()
+    
+    if close_figs:
+        
+        plt.close()
+        
+    else:
+        
+        plt.show()
+    
     return fig, ax
 
 def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
@@ -225,17 +312,53 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
     plt.register_cmap(cmap=newcmap)
 
     return newcmap
+'''
+def create_grid(dim = 3, domain_boundaries = [0.0,1.0], step = 0.005):
+    """
+    Generate a grid for the coordinates of datapoints that represent a 
+    multidimensional cube of data with the desired spacing.
 
-def create_ternary_grid(range_min=0, range_max=1, interval=0.01):
+    Parameters
+    ----------
+    dim : int, optional
+        Dimensionality of the datacube. The default is 3.
+    domain_boundaries : [float], optional
+        A list with two elements. The first element is the lower boundary of
+        the domain (inclusive). The second element is the upper boundary of the
+        domain (exclusive). The domain boundaries will be the same for each
+        dimension. The default is [0.0,1.0].
+    step : float, optional
+        Step size for the points in the grid. The default is 0.005.
+
+    Returns
+    -------
+    points : Numpy array
+        Coordinates of the generated points. The shape of the array is
+        (number of points, dim)
+
+    """
     
-    a = np.arange(range_min, range_max, interval)
-    xt, yt, zt = np.meshgrid(a,a,a, sparse=False)
-    points = np.transpose([xt.ravel(), yt.ravel(), zt.ravel()])
-    # The x, y, z coordinates need to sum up to 1 in a ternary grid.
-    points = points[abs(np.sum(points, axis=1)-1) < interval]
+    ### This grid is used for sampling+plotting the posterior mean and std_dv + acq function.
+    a = np.arange(domain_boundaries[0], domain_boundaries[1], step)
+    b = [a for i in range(dim)]
+    
+    grid_temp = np.meshgrid(*b, sparse=False)
+    grid_temp_list = [grid_temp[i].ravel() for i in range(dim)]
+    
+    points = np.transpose(grid_temp_list)
+    
+    return points
+
+
+def create_ternary_grid(step = 0.005):
+    
+
+    ### This grid is used for sampling+plotting the posterior mean and std_dv + acq function.
+    points = create_grid(step = step)
+    points = points[abs(np.sum(points, axis=1)-1) < (step - step/5)]
     
     return points    
-
+'''
 def init_plots(rounds, limit_file_number, time_str, results_folder):
     
     # This grid is used for sampling+plotting the posterior mean and std_dv + acq function.
@@ -271,6 +394,19 @@ def init_plots(rounds, limit_file_number, time_str, results_folder):
 
 def fill_ternary_grid(mean, std, GP_model, points, y_train_data = None):
     
+    # This function can deal with GPy GPRegression model and GPyOpt
+    # GPModel, not other models.
+    posterior_mean, posterior_var = predict_points(GP_model, points, 
+                                                   Y_data = y_train_data)
+    
+    mean = posterior_mean
+    std = np.sqrt(posterior_var)
+    
+    return mean, std
+    
+'''
+def fill_ternary_grid(mean, std, GP_model, points, y_train_data = None):
+    
     # : Here the posterior mean and std_dv+acquisition function are calculated.
     mean, posterior_var = GP_model.predict(points) # MAKING THE PREDICTION, GPy GPregression model assumed
     
@@ -285,6 +421,7 @@ def fill_ternary_grid(mean, std, GP_model, points, y_train_data = None):
         std = np.sqrt(posterior_var)
         
     return mean, std
+'''
 
 def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points, 
                        y_train_data = None, scale_acq = True):
@@ -368,30 +505,32 @@ def define_norm_for_surf_plot(target, color_lims = None):
     return norm
     
 def plot_surf_with_lims_and_name(points, target, color_lims, cmap, cbar_label,
-                                     saveas, cbar_ticks = None):
+                                     saveas, cbar_ticks = None, close_figs = False):
     
     norm = define_norm_for_surf_plot(target, color_lims = color_lims)
     
     triangleplot(points, target, norm, cmap = cmap,
                  cbar_label = cbar_label, saveas = saveas,  
-                 cbar_ticks = cbar_ticks)
+                 cbar_ticks = cbar_ticks, close_figs = close_figs)
 
     
 def plot_mean_only(points, mean, color_lims = None, cmap = 'RdBu_r',
-                   cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = None):
+                   cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = None,
+                   close_figs = False):
                 
     plot_surf_with_lims_and_name(points, mean,
                                      color_lims = color_lims, cmap = cmap,
-                                     cbar_label = cbar_label, saveas = saveas)
+                                     cbar_label = cbar_label, saveas = saveas,
+                                     close_figs = close_figs)
 
 def plot_std_only(points, std, color_lims = None, cmap = 'RdBu_r',
                    cbar_label = r'Std $I_{c}(\theta)$ (px$\cdot$h)', 
-                   saveas = None,  cbar_ticks = None):
+                   saveas = None,  cbar_ticks = None, close_figs = False):
                 
     plot_surf_with_lims_and_name(points, std,
                                      color_lims = color_lims, cmap = cmap,
                                      cbar_label = cbar_label, saveas = saveas,  
-                                     cbar_ticks = cbar_ticks)
+                                     cbar_ticks = cbar_ticks, close_figs = close_figs)
 
 def init_acq_plot(points, acq, cmap_base):
 
@@ -442,7 +581,7 @@ def init_acq_plot(points, acq, cmap_base):
     return points_to_plot, acq_to_plot, plot_params
     
 def plot_acq_only(points, acq, color_lims = None, cmap_base = 'RdBu',
-                   cbar_label = r'$Acq(\theta)$', saveas = None):
+                   cbar_label = r'$Acq(\theta)$', saveas = None, close_figs = False):
     
     # Acq. colorbar label in C2a:
     # r'$EIC (\theta, \beta_{DFT})$'
@@ -465,10 +604,10 @@ def plot_acq_only(points, acq, color_lims = None, cmap_base = 'RdBu',
                  saveas = saveas, 
                  surf_levels = plot_params['surf_levels'],
                  cbar_spacing = plot_params['cbar_spacing'],
-                 cbar_ticks = plot_params['cbar_ticks'])
+                 cbar_ticks = plot_params['cbar_ticks'], close_figs = close_figs)
     
 def plot_acq_and_data(points, acq, data, color_lims = None, cmap_base = 'RdBu',
-                   cbar_label = r'$Acq(\theta)$', saveas = None):
+                   cbar_label = r'$Acq(\theta)$', saveas = None, close_figs = False):
     
     
     # Acq.fun. plot looks weird unless zeros are removed and colormap shifted. 
@@ -496,11 +635,11 @@ def plot_acq_and_data(points, acq, data, color_lims = None, cmap_base = 'RdBu',
                  surf_levels = plot_params['surf_levels'],
                  scatter_points=data, scatter_color = 'k',
                  cbar_spacing = plot_params['cbar_spacing'],
-                 cbar_ticks = plot_params['cbar_ticks'])
+                 cbar_ticks = plot_params['cbar_ticks'], close_figs = close_figs)
     
 def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = 'RdBu_r',
                    cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h)', saveas = None,
-                   cbar_ticks = None):
+                   cbar_ticks = None, close_figs = False):
                 
     # Let's not use the convenience function 'plot_surf_with_lims_and_name'
     # because we change so many parts. Repeat its functionality, instead.
@@ -513,12 +652,12 @@ def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = '
                  saveas = saveas,
                  scatter_points = data_x, scatter_color = np.ravel(data_y),
                  #cbar_spacing = None, cbar_ticks = cbar_ticks)
-                 cbar_ticks = cbar_ticks)
+                 cbar_ticks = cbar_ticks, close_figs = close_figs)
 
 def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
            BO_objects, materials, X_rounds, Y_rounds, Y_accum, X_accum, x_next,
            limit_file_number = True, time_str = None, 
-           results_folder = './Results/', minimize = True):
+           results_folder = './Results/', minimize = True, close_figs = False):
     
     
     # Create a ternary grid 'points', the necessary folder structure, and 
@@ -578,7 +717,7 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
                           cbar_label = r'$Acq(\theta)$ in round ' + str(i),
                           saveas = results_dir +
                           'Acq-with-single-round-samples-round'+str(i) + 
-                          '-' + time_now)
+                          '-' + time_now, close_figs = close_figs)
         
         # Plot posterior mean with samples acquired by the end of the round.
         plot_mean_and_data(points, posterior_mean[i]/axis_scale,
@@ -588,25 +727,25 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
                            r'$I_{c}(\theta)$ (px$\cdot$h) in round ' + str(i),
                            saveas = results_dir +
                            'Modelled-Ic-with-samples-round' + str(i) + 
-                           '-' + time_now)
+                           '-' + time_now, close_figs = close_figs)
         
         plot_std_only(points, posterior_std[i]/axis_scale,
                       color_lims = lims_s,
                       saveas = results_dir + 'St-Dev-of-modelled-Ic-round' +
-                      str(i) + '-' + time_now)
+                      str(i) + '-' + time_now, close_figs = close_figs)
         
         if (limit_file_number == False):        
             
             plot_mean_only(points, posterior_mean[i]/axis_scale,
                            color_lims = lims_p,
                            saveas = results_dir + 'Modelled-Ic-no-grid-round' +
-                           str(i) + '-' + time_now)
+                           str(i) + '-' + time_now, close_figs = close_figs)
             
             plot_acq_only(points, acq_to_plot,
                                       color_lims = lims_a,
                                       cbar_label = r'$Acq(\theta)$ in round ' + str(i),
                                       saveas = results_dir + 'Acq-round'+str(i) + 
-                                     '-' + time_now)
+                                     '-' + time_now, close_figs = close_figs)
             
     plt.close('all')
     

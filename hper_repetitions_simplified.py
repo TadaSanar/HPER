@@ -261,11 +261,11 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000, '\n')
 
     
-    c_eig = [0.95]#[1]#[0.75]  # Expected information gain.
+    c_eig = [0.8]#, 1]#[0.75]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [15]#[20]#[20]
+    c_exclz = [15]#, 20]#[20]
     # Gradient limit. When the number is higher, the criterion picks less points. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.8])))#list(cg(np.array([0.6])))
+    c_g = list(cg(np.array([0.8, 0.6])))#list(cg(np.array([0.6])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -278,17 +278,17 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.01, 0.1]
+    jitters = [0.1]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240613/Comp_to_Emma/Noise100/ARDoff/'
+    folder = './Results/20240729/Noisy2/'
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 10, # Repetitions of the whole BO process.
+    bo_params = {'n_repetitions': 50, # Repetitions of the whole BO process.
                  'n_rounds': 250, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
@@ -301,9 +301,11 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = True
+    save_figs = False
     # Give False if you don't want to save disk space while saving the data.
     save_disk_space = True
+    # Give True if you want to close the figures immediately after they are created.
+    close_figs = True
     
     log_progress = False
     
@@ -458,7 +460,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
                     df_data_coll_params=ddcp,
                     no_plots=no_plots, results_folder=triangle_folder,
                     noise_target = bo_params['noise_target'],
-                    seed = None)#Am)
+                    seed = None, close_figs = close_figs)#Am)
                 
                 # Getting % usage of virtual_memory ( 3rd field)
                 print('BO ended. \n')
@@ -698,7 +700,7 @@ if __name__ == "__main__":
     path_gtmodel_humanevals = './Source_data/visualquality/human_model_scale0to1' #'./Source_data/visualquality/Human_GPR_model_20220801' # GPy.models.gp_regression.GPRegression
     
     # Number of methods to be tested.
-    m_total = 8
+    m_total = 2
     
     # Load the starting points for BO. Every method will
     # share these same init points.
@@ -740,12 +742,13 @@ if __name__ == "__main__":
     except KeyError:
         ncpus = mp.cpu_count()
     
-    # Load source data models.
+    # Load source data models. The implemented code assumes these models do not
+    # output scaled values but data in real units.
     global gt_model_targetprop
-    gt_model_targetprop = load_GP_model(path_gtmodel_targetprop)
+    gt_model_targetprop = load_GP_model(path_gtmodel_targetprop) # Perovskite stability data (units in [px*min]), 0 px*min is fully stable and high values are instable
     global gt_model_human
-    gt_model_human= load_GP_model(path_gtmodel_humanevals)
-    '''
+    gt_model_human = load_GP_model(path_gtmodel_humanevals) # Human opinion on sample quality data, scale [0,1], where 1 is bad quality and 0 is high quality.
+    
     # This is a serial version of the code.
     for i in range(m_total):
         
@@ -761,3 +764,9 @@ if __name__ == "__main__":
                                 starting_point_candidates=init_points),
                         range(m_total), max_workers=ncpus)
     
+    '''
+'''
+Human does not look like it has been fitted properly. Check settings. Try to
+fit a new GP with these hyperparam.
+PyOpt.
+'''

@@ -16,6 +16,7 @@ from plotting_v2 import plotBO
 from plotting_data_fusion import plotDF
 #import logging
 import random
+import psutil
 
 def predict_points(gpmodel, x_points, Y_data=None):
     '''
@@ -29,9 +30,11 @@ def predict_points(gpmodel, x_points, Y_data=None):
         
     elif type(gpmodel) is GPyOpt.models.gpmodel.GPModel:
         
-        # Prediction output is mean, standard deviation.
-        posterior_mean, posterior_std = gpmodel.predict(x_points)
-        posterior_var = (posterior_std)**2
+        # Prediction output of the GPModel is mean, standard deviation. So let's
+        # dig out the GPRegression model and predict with that.
+        posterior_mean, posterior_var = gpmodel.model.predict_noiseless(x_points)
+        #posterior_var = (posterior_std)**2
+        posterior_std = np.sqrt(posterior_var)
         
     # If the model has been trained with already-scaled (zero mean, unit
     # variance) data, the provided train data 'Y_data' will be used for scaling
@@ -83,7 +86,7 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
 def GP_model(data_fusion_data, data_fusion_target_variable = 'dGmix (ev/f.u.)', 
              lengthscale = 0.03, variance = 2, noise_variance = None,
              data_fusion_input_variables = ['CsPbI', 'MAPbI', 'FAPbI'],
-             optimize_hyperpar = True):
+             optimize_hyperpar = True, domain_boundaries = [0, 1]):
     
     if data_fusion_data is None:
         
@@ -97,81 +100,159 @@ def GP_model(data_fusion_data, data_fusion_target_variable = 'dGmix (ev/f.u.)',
             
         else:
             
-            X = data_fusion_data[data_fusion_input_variables] # This is 3D input
-            Y = data_fusion_data[[data_fusion_target_variable]] # Negative value: stable phase. Uncertainty = 0.025 
+            X = data_fusion_data[data_fusion_input_variables]
+            Y = data_fusion_data[[data_fusion_target_variable]] 
             X = X.values # Optimization did not succeed without type conversion.
             Y = Y.values
             
-            # Init value for noise_var, GPy will optimize it further.
-            noise_var = noise_variance
-            noise_var_limit = 1e-12
+            init_hyperpars, lims_kernel_var, lims_noise_var = evaluate_GP_model_constraints(
+                Y, noise_variance, variance, lengthscale, 
+                optimize_hyperpar = optimize_hyperpar, 
+                domain_boundaries = domain_boundaries)
             
-            if (optimize_hyperpar is True) and ((noise_var is None) or (noise_var <= 0)):
-                
-                noise_var = 0.01*Y.var()
-                
-                # Noise_variance should not be zero.
-                if noise_var == 0:
-                    
-                    noise_var = noise_var_limit
-                
-            #message = ('Human Gaussian noise variance in data and model input: ' +
-            #           str(Y.var()) + ', ' + str(noise_var) + '\n' +
-            #           'Human model data:' + str(Y))
-            #print(message)
-            #logging.log(21, message)
-            
-            # Set hyperparameter initial guesses.
-            
-            kernel_var = variance
-            
-            if (optimize_hyperpar is True) and ((kernel_var is None) or (kernel_var <= 0)):
-                
-                kernel_var = Y.var()
-                
-                if kernel_var == 0: # Only constant value(s)
-                    
-                    kernel_var = 1
-                
-            kernel_ls = lengthscale
-            
-            if (optimize_hyperpar is True) and ((kernel_ls is None) or (kernel_ls <= 0)):
-                
-                kernel_ls = X.max()-X.min()
-                
-                if kernel_ls == 0: # Only constant value(s)
-                    
-                    kernel_ls = 1
-                    
             # Define the kernel and model.
             
             kernel = GPy.kern.Matern52(input_dim=X.shape[1], 
-                                  lengthscale=kernel_ls, variance=kernel_var)
+                                  lengthscale=init_hyperpars['kernel_ls'], 
+                                  variance=init_hyperpars['kernel_var'])
             
-            model = GPy.models.GPRegression(X,Y,kernel, noise_var = noise_var)
+            model = GPy.models.GPRegression(X, Y, kernel, 
+                                            noise_var = init_hyperpars[
+                                                'noise_var'])
             
+            constrain_optimize_GP_model(model, init_hyperpars = init_hyperpars,
+                                        lims_kernel_var = lims_kernel_var,
+                                        lims_noise_var = lims_noise_var, 
+                                        optimize_hyperpar = optimize_hyperpar)
+            
+    return model
+
+def evaluate_GP_model_constraints(Y, noise_variance, kernel_variance, 
+                                    lengthscale, optimize_hyperpar = True,
+                                    noise_var_limit = 1e-12, 
+                                    domain_boundaries = [0, 1]):
+    
+    # Init value for noise_var, GPy will optimize it further.
+    noise_var = noise_variance
+    
+    if ((optimize_hyperpar is True) and 
+        ((noise_var is None) or (noise_var <= 0))):
+        
+        noise_var = 0.01*Y.var() # Initial assumption.
+        
+        # Noise_variance should not be zero for numerical stability.
+        if noise_var == 0:
+            
+            noise_var = noise_var_limit
+        
+    #message = ('Human Gaussian noise variance in data and model input: ' +
+    #           str(Y.var()) + ', ' + str(noise_var) + '\n' +
+    #           'Human model data:' + str(Y))
+    #print(message)
+    #logging.log(21, message)
+    
+    # Hyperparameter initial guesses.
+    
+    kernel_var = kernel_variance
+    
+    if ((optimize_hyperpar is True) and 
+        ((kernel_var is None) or (kernel_var <= 0))):
+        
+        kernel_var = Y.var() # Initial assumption
+        
+        # Kernel variance should not be zero (would allow only constant
+        # values)
+        if kernel_var == 0:
+            
+            kernel_var = 1
+        
+    kernel_ls = lengthscale
+    
+    if ((optimize_hyperpar is True) and 
+        ((kernel_ls is None) or (kernel_ls <= 0))):
+        
+        kernel_ls = (domain_boundaries[1] - domain_boundaries[0])/2
+        
+        # Kernel lengthscale should not be zero for numerical stability.
+        if kernel_ls == 0:
+            
+            kernel_ls = 1
+    
+    if optimize_hyperpar is True:
+        
+        noise_var_lower_limit = noise_var_limit
+        
+        # The upper bound is set to the noise level that corresponds to
+        # the maximum Y value in the dataset.
+        noise_var_upper_limit = noise_var + (Y.max())**2
+            
+        # Also kernel variance is limited because the model sometimes converged 
+        # into ridiculous kernel variance values with small number of 
+        # datapoints and no bounds on variance.
+        kernel_var_lower_limit = kernel_var * noise_var_limit
+        kernel_var_upper_limit = kernel_var + 10*(Y.max())**2
+        
+    else:
+        
+        noise_var_lower_limit = None
+        noise_var_upper_limit = None
+        kernel_var_lower_limit = None
+        kernel_var_upper_limit = None
+    
+    init_hyperpars = {'noise_var': noise_var, 'kernel_var': kernel_var, 
+                      'kernel_ls': kernel_ls}
+    
+    lims_kernel_var = [kernel_var_lower_limit, kernel_var_upper_limit]
+    lims_noise_var = [noise_var_lower_limit, noise_var_upper_limit]
+    
+    return init_hyperpars, lims_kernel_var, lims_noise_var 
+     
+def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
+                                                         'kernel_var': None,
+                                                         'kernel_ls': None},
+                                lims_kernel_var = [None, None], 
+                                lims_noise_var = [None, None], 
+                                optimize_hyperpar = True, warning = False, 
+                                verbose = False, max_iters = 1000, 
+                                num_restarts = 2):
+    
             if optimize_hyperpar is True: 
                 
                 
-                # --- We make sure we do not get ridiculously small residual noise variance
-                # The upper bound is set to the noise level that corresponds to the
-                # maximum Y value in the dataset.
-                model.Gaussian_noise.constrain_bounded(noise_var_limit, noise_var + (Y.max())**2, warning=False)
+                # The upper bound is set to the noise level that corresponds to
+                # the maximum Y value in the dataset.
+                model.Gaussian_noise.constrain_bounded(lims_noise_var[0], 
+                                                       lims_noise_var[1], 
+                                                       warning = warning)
                 
-                # With small number of datapoints and no bounds on variance, the
-                # model sometimes converged into ridiculous kernel variance values.
-                model.Mat52.variance.constrain_bounded(variance*1e-12, variance + (Y.max())**2, 
-                                                     warning=False)
+                # With small number of datapoints and no bounds on variance,
+                # the model sometimes converged into ridiculous kernel variance
+                # values.
+                model.Mat52.variance.constrain_bounded(lims_kernel_var[0], 
+                                                       lims_kernel_var[1],
+                                                       warning = warning)
+                
+            else:
+                
+                # The upper bound is set to the noise level that corresponds to
+                # the maximum Y value in the dataset.
+                model.Gaussian_noise.constrain_fixed(init_hyperpars['noise_var'], 
+                                                     warning = warning)
+                
+                # With small number of datapoints and no bounds on variance,
+                # the model sometimes converged into ridiculous kernel variance
+                # values.
+                model.Mat52.variance.constrain_fixed(init_hyperpars['kernel_var'], 
+                                                     warning = warning)
                 
             # optimize
-            model.optimize_restarts(max_iters = 1000, num_restarts=2, 
-                                    verbose = False)
+            model.optimize_restarts(max_iters = max_iters, 
+                                    num_restarts = num_restarts, 
+                                    verbose = verbose)
             
             #message = ('Human Gaussian noise variance in model output: ' + 
             #           str(model.Gaussian_noise.variance[0]))
             #logging.log(21, message)
-            
-    return model
 
 
 def data_fusion_with_ei_dft_param_builder(acquisition_function, 
@@ -276,9 +357,9 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
             if p['variance'] == None:  # For GPR
                 variance = 0.5 #0.1 # Assumes the quality data is roughly zero mean unit variance.
             if p['beta'] == None:  # For probability model
-                beta = 0.1
+                beta = 0.08#0.1
             if p['midpoint'] == None:  # For P model
-                midpoint = 0.5  # For P
+                midpoint = 0.66#0.5  # For P
 
         elif data_fusion_settings['df_target_property_name'] == 'cutoff':
 
@@ -735,21 +816,12 @@ def query_target_data_from_model(k, X_rounds, Y_rounds, X_accum, Y_accum,
 
         #df = compositions_input[k].copy()
 
-    # Function predictions. Each round, the BO model is trained from zero.
-    # This is not computationally efficient, though. Should we modify at
-    # some point? Or do we want to keep the BO model for each round intact?
-    # TO DO: clean up so that works for any #D
-
-    #x = df.iloc[:,0:len(materials)].values
-
     if noise_level == 0:
         
-        preds = predict_points(gt_model_targetprop, X_rounds[k].values,
-                               gt_model_targetprop.Y)[0]
+        preds = predict_points(gt_model_targetprop, X_rounds[k].values)[0]
     else:
         
-        preds = predict_points_noisy(gt_model_targetprop, X_rounds[k].values,
-                                     gt_model_targetprop.Y, 
+        preds = predict_points_noisy(gt_model_targetprop, X_rounds[k].values, 
                                      noise_level = noise_level,
                                      seed = seed)[0]
         
@@ -953,7 +1025,7 @@ def determine_data_fusion_points(data_fusion_XZ_accum,
 def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None, results_folder = None, 
                ref_x = np.array([[0.165, 0.04, 0.79]]), ref_y = 126444, 
                ref_y_std = 106462, saveas = False, hyperpars = None,
-               data_fusion_hyperpars = None):
+               data_fusion_hyperpars = None, close_figs = True):
     
         plt.figure()
         plt.plot(range(Y_accum[-1].shape[0]), Y_accum[-1])
@@ -971,7 +1043,13 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
             
             plt.gcf().savefig(filename + '.pdf', transparent = True)
             
-        plt.show()
+        if close_figs:
+            
+            plt.close()
+            
+        else:
+            
+            plt.show()
         
         plt.figure()
         plt.plot(range(X_accum[-1].shape[0]), np.sum(X_accum[-1], axis = 1), 'k', linewidth = 0.5)
@@ -991,7 +1069,13 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
                 
             plt.gcf().savefig(filename + '.pdf', transparent = True)
         
-        plt.show()
+        if close_figs:
+            
+            plt.close()
+            
+        else:
+            
+            plt.show()
         
         plt.figure()
         plt.plot(range(rounds), optimum[:, -1])
@@ -1010,7 +1094,13 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
             
             plt.gcf().savefig(filename + '.pdf', transparent = True)
             
-        plt.show()
+        if close_figs:
+            
+            plt.close()
+            
+        else:
+            
+            plt.show()
                 
         
         
@@ -1040,7 +1130,13 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
             
             plt.gcf().savefig(filename + '.pdf', transparent = True)
             
-        plt.show()
+        if close_figs:
+            
+            plt.close()
+            
+        else:
+            
+            plt.show()
         
         plt.figure()
         plt.plot(range(rounds), model_optimum[:, -1])
@@ -1059,7 +1155,13 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
             
             plt.gcf().savefig(filename + '.pdf', transparent = True)
             
-        plt.show()
+        if close_figs:
+            
+            plt.close()
+            
+        else:
+            
+            plt.show()
                 
         plt.figure()
         plt.plot(range(rounds), np.sum(model_optimum[:, 0:-1], axis = 1), 'k', 
@@ -1086,7 +1188,13 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
             
             plt.gcf().savefig(filename + '.pdf', transparent = True)
             
-        plt.show()
+        if close_figs:
+            
+            plt.close()
+            
+        else:
+            
+            plt.show()
         
         if hyperpars is not None:
             
@@ -1112,7 +1220,14 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
                     
                     plt.gcf().savefig(filename + '.pdf', transparent = True)
                     
-                plt.show()
+                if close_figs:
+                    
+                    plt.close()
+                    
+                else:
+                    
+                    plt.show()
+                
             
         if data_fusion_hyperpars is not None:
             
@@ -1134,7 +1249,15 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
                     
                     #plt.gcf().savefig(filename + '.pdf', transparent = True)
                     plt.gcf().savefig(filename + '.png', dpi=300)
-                plt.show()
+                
+                if close_figs:
+                    
+                    plt.close()
+                    
+                else:
+                    
+                    plt.show()
+                
             
         
         
@@ -1182,7 +1305,38 @@ def create_ternary_grid(step = 0.005):
     
     return points
 
-def find_minimum(model, Y = None, ternary = True, domain_boundaries = [0.0, 1.0]):
+def find_optimum(model, Y_train = None, ternary = True, 
+                 domain_boundaries = [0.0, 1.0], minimize = True):
+    """
+    Sample a grid of points inside the domain boundaries and find the optimum
+    value and location among the sampled points.
+
+    Parameters
+    ----------
+    model : GPy GP regression model or GPyOpt GPModel
+        The model that is sampled.
+    Y_train : Numpy array, optional
+        Provide the train data of the model if you want to scale the data 
+        back to original units. Provide None to use the direct output of the 
+        model. The default is None.
+    ternary : boolean, optional
+        Set to True if you want to create a grid where the elements of every
+        point sum up to one (e.g., material proportions). The default is True.
+    domain_boundaries : list of floats (length 2), optional
+        Minimum and maximum boundaries for the domain from which the points are
+        sampled from. The default is [0.0, 1.0].
+    minimize : boolean, optional
+        Set to True if model optimum is its minimum. Set to False if model
+        optimum is its maximum. The default is True.
+
+    Returns
+    -------
+    x_opt : Numpy array
+        DESCRIPTION.
+    y_opt : Numpy array
+        DESCRIPTION.
+
+    """
     
     if ternary is True:
         
@@ -1197,12 +1351,20 @@ def find_minimum(model, Y = None, ternary = True, domain_boundaries = [0.0, 1.0]
                              domain_boundaries = domain_boundaries)
         
     # Assumes single-task y.
-    y, _ = predict_points(model, points, Y_data=Y)
-    idx_min = np.argmin(y)
-    y_min = y[idx_min, :]
-    x_min = points[[idx_min], :]
+    y, _ = predict_points(model, points, Y_data=Y_train)
+    
+    if minimize is True:
+        
+        idx_opt = np.argmin(y)
+        
+    else:
+        
+        idx_opt = np.argmax(y)
+        
+    y_opt = y[idx_opt, :]
+    x_opt = points[[idx_opt], :]
 
-    return x_min, y_min
+    return x_opt, y_opt
         
 def create_optima_arrays(BO_objects, X_accum, Y_accum, rounds, materials,
                               ternary, domain_boundaries):
@@ -1225,8 +1387,8 @@ def create_optima_arrays(BO_objects, X_accum, Y_accum, rounds, materials,
     # Model optimum for unconstrained and constrained space.
     for i in range(rounds):
         
-        model_optimum[i,0:-1], model_optimum[i,-1] = find_minimum(BO_objects[i].model.model, # GPRegression model 
-                                                    Y = Y_accum[i],
+        model_optimum[i,0:-1], model_optimum[i,-1] = find_optimum(BO_objects[i].model.model, # GPRegression model 
+                                                    Y_train = Y_accum[i],
                                                     ternary = ternary, 
                                                     domain_boundaries = 
                                                     domain_boundaries)
@@ -1241,7 +1403,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                   acquisition_function='EI', acq_fun_params=None,
                   df_data_coll_params=None, no_plots=False,
                   results_folder='./Results/', noise_target = 1,
-                  seed = None, save_memory = True):
+                  seed = None, save_memory = True, close_figs = True):
     '''
     Simulates a Bayesian Optimization cycle using the Gaussian Process
     Regression model given in bo_ground_truth_model_path as the ground truth for
@@ -1529,10 +1691,11 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                 # Create a data fusion model with the data fusion data collected this far.
                 current_df_model = GP_model(data_fusion_XZ_accum[k],
                                             data_fusion_target_variable = acq_fun_params['df_target_var'],
-                                            lengthscale = acq_fun_params['gp_lengthscale'],
-                                            variance = acq_fun_params['gp_variance'],
+                                            lengthscale = None,#acq_fun_params['gp_lengthscale'],
+                                            variance = None,#acq_fun_params['gp_variance'],
                                             noise_variance = None,
-                                            data_fusion_input_variables = acq_fun_params['df_input_var'])
+                                            data_fusion_input_variables = acq_fun_params['df_input_var'],
+                                            domain_boundaries = domain_boundaries)
                 
                 
             else:
@@ -1546,14 +1709,21 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                                             Y = acq_fun_params['df_data'][[
                                                 acq_fun_params['df_target_var']]].values)
                     
-                    current_df_model.optimize_restarts(messages=False, 
-                                                       max_iters = 1000,
-                                                       num_restarts = 2, 
-                                                       verbose = False)
+                    init_hyperpars_df, lims_kernel_var_df, lims_noise_var_df = evaluate_GP_model_constraints(
+                        Y = current_df_model.Y, 
+                        noise_variance = None, 
+                        kernel_variance = None,#acq_fun_params['gp_variance'], 
+                        lengthscale = None,#acq_fun_params['gp_lengthscale'],
+                        domain_boundaries = domain_boundaries)
+                    
+                    constrain_optimize_GP_model(current_df_model, 
+                                                init_hyperpars = init_hyperpars_df, 
+                                                lims_kernel_var = lims_kernel_var_df,
+                                                lims_noise_var = lims_kernel_var_df)
+                    
+            #if (save_memory is False) or (k<2) or (no_plots == False):
                 
-            if (save_memory is False) or (k<2):
-                
-                data_fusion_models[k] = current_df_model.copy()
+            data_fusion_models[k] = current_df_model.copy()
             
             # Add the model in any case to the acquisition parameters.
             acq_fun_params['df_model'] = current_df_model.copy()
@@ -1621,10 +1791,13 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
             data_fusion_gaussian_noises[k] = current_df_model.Gaussian_noise.variance[0]
             
         
-
+    
     ###########################################################################
     # DATA TREATMENT, PLOTTING, SAVING
-
+    
+    print('Before plots and saves:\n')
+    print('RAM memory % used:', psutil.virtual_memory()[2])
+    
     message = 'Last suggestions for the next sampling points: ' + str(x_next[-1])
     #logging.log(21, message)
     
@@ -1665,7 +1838,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
         plotBO(rounds, x_next_df, BO_objects, materials, X_rounds, Y_rounds,
                Y_accum, X_accum, x_next, limit_file_number=True,
                time_str=time_now, results_folder=results_folder,
-               minimize = True)
+               minimize = True, close_figs = close_figs)
 
         if acquisition_function == 'EI_DFT':
 
@@ -1677,7 +1850,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                    #acq_fun_params['gp_noise_variance'],
                    acq_fun_params['p_beta'], acq_fun_params['p_midpoint'],
                    limit_file_number=True, time_str=time_now,
-                   results_folder=results_folder)
+                   results_folder=results_folder, close_figs = close_figs)
         
             message = ('Data fusion:\nGaussian noise variances in this run: ' + 
                        str(np.mean(data_fusion_gaussian_noises)) + '+-' + 
@@ -1693,13 +1866,14 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
             print(message)
             
             
-        # Plots that work with any dimensionality.
+        # Plots that work with any di<mensionality.
         plot_basic(Y_accum, X_accum, optimum, 
                    model_optimum, rounds, 
                    time_str = time_now, 
                    results_folder = results_folder, saveas = not no_plots,
                    hyperpars = surrogate_model_params,
-                   data_fusion_hyperpars = data_fusion_params)
+                   data_fusion_hyperpars = data_fusion_params, 
+                   close_figs = close_figs)
         
     message = ('Target property:\nGaussian noise variances in this run: ' + 
                str(np.mean(gaussian_noises)) + '+-' + 
@@ -1726,12 +1900,27 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
     #logging.log(21, 'Jitter: ' + str(acq_fun_params['jitter']))
     #logging.log(21, 'Y values: ' + str(Y_rounds))
     
+    print('After plots and saves:\n')
+    print('RAM memory % used:', psutil.virtual_memory()[2])
+    
     plt.close()
+    
+    print('After closing figs:\n')
+    print('RAM memory % used:', psutil.virtual_memory()[2])
+    
     
     if (save_memory is True):
         
-        BO_objects[0:(-1)] = [None] * (len(BO_objects) - 1)
+        #BO_objects[0:(-1)] = [None] * (len(BO_objects) - 1)
+        BO_objects = [None] * (len(BO_objects))
         
+        if acquisition_function == 'EI_DFT':
+            
+            #data_fusion_models[0:(-1)] = [None] * (len(data_fusion_models) - 1)
+            data_fusion_models = [None] * (len(data_fusion_models))
+        
+    print('After clear-outs:\n')
+    print('RAM memory % used:', psutil.virtual_memory()[2])
     
     
     return next_suggestions, optimum, model_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects

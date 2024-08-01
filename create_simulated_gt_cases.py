@@ -645,7 +645,7 @@ print(y_scaled.min())
 print(y_scaled.max())
 
 # RBF kernel
-kernel = RBF(input_dim=x.shape[1], lengthscale=gt_lengthscale_human, 
+kernel = RBF(input_dim=x_human.shape[1], lengthscale=gt_lengthscale_human, 
                   variance=gt_variance_human*(y_scaled.std())**2)
 noise_var = gt_noise_var_human * (y_scaled.std())**2
 model = GPRegression(x_human, y_scaled, kernel, noise_var = noise_var)

@@ -285,7 +285,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240801/HO/Noise-free-jitter01/'
+    folder = './Results/20240801/HO/Noisy-jitter01/'
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
@@ -293,10 +293,10 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
-                 'noise_target': 0  # Noise level of the target variable (between [0,1])
+                 'noise_target': 1  # Noise level of the target variable (between [0,1])
                  }
     
-    noise_df = 0 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
+    noise_df = 1 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
 
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False

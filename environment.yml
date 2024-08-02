@@ -1,8 +1,9 @@
 name: hper
 channels:
-  - conda-forge
   - defaults
 dependencies:
   - python=3.7
-  - spyder=5.2.2
-prefix: /home/armi/anaconda3/envs/hper
+  - spyder-kernels
+  - spyder
+  - tqdm
+prefix: /u/08/atiihone/unix/anaconda3/envs/hper

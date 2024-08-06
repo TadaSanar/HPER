@@ -217,6 +217,11 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
                 
             pickle_variables.append(None)
             
+            # BO objects variables are optional but the rest are not.
+            if not 'BOobjects' in s:
+                
+                print('Loading this file failed: ', s)
+            
     res_orig = {'optima': np.array(pickle_variables[0]['optimal_samples']),
                 'model_optima': np.array(pickle_variables[0]['model_optima']),
                 'X_accum': pickle_variables[1],

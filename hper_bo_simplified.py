@@ -290,8 +290,8 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
                 
         p = {'lengthscale': None,
              'variance': None,
-             'beta': None,
-             'midpoint': None,
+             'p_beta': None,
+             'p_midpoint': None,
              'df_target_variable': None, 
              'df_input_variables': None}
         
@@ -337,10 +337,10 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
                 lengthscale = 0.03
             if p['variance'] == None:  # For GPR
                 variance = 2
-            if p['beta'] == None:  # For probability model
-                beta = 0.025
-            if p['midpoint'] == None:  # For P model
-                midpoint = 0  # For P
+            if p['p_beta'] == None:  # For probability model
+                p_beta = 0.025
+            if p['p_midpoint'] == None:  # For P model
+                p_midpoint = 0  # For P
 
         elif data_fusion_settings['df_target_property_name'] == 'quality':
 
@@ -356,10 +356,10 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
                 lengthscale = None #0.1 # Set a value for the lengthscale if you have info on this, otherwise the model learns it.
             if p['variance'] == None:  # For GPR
                 variance = 0.5 #0.1 # Assumes the quality data is roughly zero mean unit variance.
-            if p['beta'] == None:  # For probability model
-                beta = 0.08#0.1
-            if p['midpoint'] == None:  # For P model
-                midpoint = 0.66#0.5  # For P
+            if p['p_beta'] == None:  # For probability model
+                p_beta = 0.08#0.1
+            if p['p_midpoint'] == None:  # For P model
+                p_midpoint = 0.66#0.5  # For P
 
         elif data_fusion_settings['df_target_property_name'] == 'cutoff':
 
@@ -375,10 +375,10 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
                 lengthscale = 0.05
             if p['variance'] == None:  # For GPR
                 variance = 0.05
-            if p['beta'] == None:  # For probability model
-                beta = 0.025
-            if p['midpoint'] == None:  # For P model
-                midpoint = 0  # For P
+            if p['p_beta'] == None:  # For probability model
+                p_beta = 0.025
+            if p['p_midpoint'] == None:  # For P model
+                p_midpoint = 0  # For P
 
         else:
             
@@ -411,8 +411,8 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
                          'df_input_var': p['df_input_variables'],
                          'gp_lengthscale': lengthscale,
                          'gp_variance': variance,
-                         'p_beta': beta,
-                         'p_midpoint': midpoint
+                         'p_beta': p_beta,
+                         'p_midpoint': p_midpoint
                          }
     
     return ei_dft_params
@@ -499,8 +499,8 @@ def acq_fun_param2descr(acq_fun, acq_fun_params=None):
         output_str = (output_str + '-dftarget-' + ei_dft_params['df_target_prop'] +
                       '-lengthscale-' + str(ei_dft_params['gp_lengthscale']) +
                       '-variance-' + str(ei_dft_params['gp_variance']) +
-                      '-beta-' + str(ei_dft_params['p_beta']) +
-                      '-midpoint-' + str(ei_dft_params['p_midpoint']))
+                      '-p_beta-' + str(ei_dft_params['p_beta']) +
+                      '-p_midpoint-' + str(ei_dft_params['p_midpoint']))
         
     if acq_fun_params is not None:
         

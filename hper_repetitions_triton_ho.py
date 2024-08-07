@@ -285,7 +285,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240807/HO_parallel/Noise-free/'
+    folder = './Results/20240807/HO_parallel_real/Noise-free/'
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
@@ -749,7 +749,7 @@ if __name__ == "__main__":
     gt_model_targetprop = load_GP_model(path_gtmodel_targetprop) # Perovskite stability data (units in [px*min]), 0 px*min is fully stable and high values are instable
     global gt_model_human
     gt_model_human = load_GP_model(path_gtmodel_humanevals) # Human opinion on sample quality data, scale [0,1], where 1 is bad quality and 0 is high quality.
-    
+    '''
     # This is a serial version of the code.
     for i in range(m_total):
         
@@ -765,7 +765,7 @@ if __name__ == "__main__":
                                 starting_point_candidates=init_points),
                         range(m_total), max_workers=ncpus)
     
-    '''
+    
 '''
 Human does not look like it has been fitted properly. Check settings. Try to
 fit a new GP with these hyperparam.

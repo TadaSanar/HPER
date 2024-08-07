@@ -1,9 +1,0 @@
-name: hper
-channels:
-  - defaults
-dependencies:
-  - python=3.7
-  - spyder-kernels
-  - spyder
-  - tqdm
-prefix: /u/08/atiihone/unix/anaconda3/envs/hper

@@ -285,7 +285,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240807/HO_parallel_real/Noise-free/'
+    folder = './Results/20240807/HO_parallel/Noise-free/'
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.

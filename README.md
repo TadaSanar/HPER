@@ -17,7 +17,7 @@ information.
 
 Branch 'Neurips2022' contains the code base for producing the tests presented as a poster contribution in AI4Mat workshop as a part of Neurips 2022:
 
-[1] Tiihonen, A., Filstroff, L., Mikkola, P., Lehto, E., Kaski, S., Todorović, M., & Rinke, P. More trustworthy Bayesian optimization of materials properties by adding human into the loop. In AI for Accelerated Materials Design NeurIPS 2022 Workshop. https://openreview.net/forum?id=JQSzcd_Zc62
+[1] Tiihonen, A., Filstroff, L., Mikkola, P., Lehto, E., Kaski, S., Todorović, M., & Rinke, P. More trustworthy Bayesian optimization of materials properties by adding human into the loop. In AI for Accelerated Materials Design NeurIPS 2022 Workshop. [Link](https://openreview.net/forum?id=JQSzcd_Zc62)
 
 Branch 'feat-eig' is stable and uses Python 3.7.
 
@@ -58,6 +58,13 @@ To install, clone the following repository and sub-repository:
 `$ conda activate hper2`
 
 Run HPER/hper_repetitions_less_memory.py
+
+## Implementing data fusion and human involvement in other Bayesian optimization packages
+
+TO BE ADDED. Main idea: Add a new acquisition function and feed the current human opinion Gaussian process regression model to the acquisition function as an argument at every round of Bayesian optimization.
+
+* [GPyOpt data fusion fork](https://github.com/TadaSanar/GPyOpt/)
+
 
 ## Authors
 ||                    |

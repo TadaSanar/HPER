@@ -17,7 +17,7 @@ import datetime
 from hper_plots_target import init_plots, plot_mean_and_data, plot_std_only, plot_acq_only, fill_ternary_grid
 import GPyOpt
 
-def fill_ternary_grids(mean, std, p, rounds, df_models, points, beta, midpoint, y_train_data = None):
+def fill_ternary_grids(mean, std, p, rounds, df_models, points, p_beta, p_midpoint, y_train_data = None):
     
     for i in range(rounds):
         
@@ -38,13 +38,15 @@ def fill_ternary_grids(mean, std, p, rounds, df_models, points, beta, midpoint, 
             # : Here the posterior mean and std_dv+acquisition function are calculated.
             mean[i], std[i] = fill_ternary_grid(mean[i], std[i], df_models[i], points, y_train_data = y_t)
         
-            m, p[i] = GPyOpt.acquisitions.EI_DF.calc_P(points, df_models[i], beta = beta, midpoint = midpoint)        
-
+            p[i] = GPyOpt.acquisitions.EI_DF.calc_P(points, df_models[i], 
+                                                       p_beta = p_beta, 
+                                                       p_midpoint = p_midpoint)
+            
     return mean, std, p
 
 def plotDF(rounds, materials, df_models, df_data_accum, df_variable,
            #lengthscale, variance, noise_variance, 
-           beta, midpoint, limit_file_number = True,
+           p_beta, p_midpoint, limit_file_number = True,
            time_str = None, results_folder = './Results/', close_figs = False):
     
            
@@ -87,7 +89,7 @@ def plotDF(rounds, materials, df_models, df_data_accum, df_variable,
 
     # Fill in the lists with surfaces to plot.
     gp_mean, gp_std, p = fill_ternary_grids(gp_mean, gp_std, p, rounds, df_models,
-                                            points, beta, midpoint)
+                                            points, p_beta, p_midpoint)
     
         
     ###############################################################################

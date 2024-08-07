@@ -20,8 +20,8 @@ from scipy.special import erf, erfinv
 import scipy as sp
 
 import multiprocessing as mp
-from tqdm.contrib.concurrent import process_map
-import tqdm
+#from tqdm.contrib.concurrent import process_map
+#import tqdm
 import time
 
 import GPyOpt
@@ -285,25 +285,25 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240806/Test-new-env-serial/'
+    folder = './Results/20240807/Test-new-env/Serial/' # $WRKDIR/Results/ for the server
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
-                 'n_rounds': 20, # Number of rounds in one BO.
+    bo_params = {'n_repetitions': 2, # Repetitions of the whole BO process.
+                 'n_rounds': 10, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
-                 'noise_target': 0.001  # Noise level of the target variable (between [0,1])
+                 'noise_target': 0  # Noise level of the target variable (between [0,1])
                  }
     
-    noise_df = 0.001 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
+    noise_df = 0 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
 
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = True
+    save_figs = False
     # Give False if you don't want to save disk space while saving the data.
-    save_disk_space = True
+    save_disk_space = False
     # Give True if you want to close the figures immediately after they are created.
     close_figs = True
     
@@ -701,7 +701,7 @@ if __name__ == "__main__":
     path_gtmodel_humanevals = './Source_data/visualquality/human_model_scale0to1' #'./Source_data/visualquality/Human_GPR_model_20220801' # GPy.models.gp_regression.GPRegression
     
     # Number of methods to be tested.
-    m_total = 8
+    m_total = 2
     
     # Load the starting points for BO. Every method will
     # share these same init points.
@@ -742,6 +742,8 @@ if __name__ == "__main__":
         ncpus = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
     except KeyError:
         ncpus = mp.cpu_count()
+    
+    print('Number of CPUs used: ', ncpus)
     
     # Load source data models. The implemented code assumes these models do not
     # output scaled values but data in real units.

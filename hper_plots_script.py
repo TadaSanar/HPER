@@ -978,19 +978,19 @@ def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n
 
 # Folder of experiments to plot.
 # 20240423/Noiseless-BbetterthanA-noiseeste-12-add-constr-ard-norm-Mat52kernel/'#'20231129-noisytarget-noisyhuman-ho-j001/'#'./Results/triton/20230823-noisytarget-noisyhuman-ho/'
-folder = './Results/20240801/HO/Noise-free-jitter01/'
+folder = './Results/20240807/HO_parallel_real/Noise-free/'
 
 # Experiments with the listed hyperparam range will be plotted.
 
 # [0, 0.2, 0.5, 0.8, 1]#[0, 0.5, 0.75, 0.9, 1, 2]  # Expected information gain.
-c_eig = [1, 0.8, 0.6, 0.4, 0.2, 0.1]
+c_eig = [0.2, 0.4, 0.6, 0.8, 1]
 # Size of the exclusion zone in percentage points (max. 100)
-c_exclz = [25, 20, 15, 10, 5, 2]  # [0,1,5,10,20]#[1, 5, 10, 20]
+c_exclz = [1, 5, 10, 20, 30]  # [0,1,5,10,20]#[1, 5, 10, 20]
 # Gradient limit. When the number is higher, the criterion picks less points.
 # 0.2, 0.5, 0.8, 1])))#list(cg(np.array([0.2, 0.5, 0.6, 0.8, 1])))
-c_g = list(cg(np.array([0.9, 0.8, 0.6, 0.5, 0.2, 0.1])))
+c_g = list(cg(np.array([0.9, 0.8, 0.6, 0.4])))
 
-jitters = [0.1]
+jitters = [0.01, 0.1]
 
 bo_params = {'n_repetitions': 25,
              'n_rounds': 18,

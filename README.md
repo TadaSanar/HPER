@@ -56,6 +56,7 @@ To install, clone the following repository and sub-repository:
 `$ git checkout gpyopt-df`
 `$ conda env create -f environment_temp_across_platforms_versions_fixed.yml`
 `$ conda activate hper2`
+`$ conda develop .`
 
 Run HPER/hper_repetitions.py
 

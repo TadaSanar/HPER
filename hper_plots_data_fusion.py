@@ -14,8 +14,8 @@ import matplotlib as mpl
 import matplotlib.tri as tri
 import datetime
 
-from plotting_v2 import init_plots, plot_mean_and_data, plot_std_only, plot_acq_only, fill_ternary_grid
-import GPyOpt_DF as GPyOpt
+from hper_plots_target import init_plots, plot_mean_and_data, plot_std_only, plot_acq_only, fill_ternary_grid
+import GPyOpt
 
 def fill_ternary_grids(mean, std, p, rounds, df_models, points, beta, midpoint, y_train_data = None):
     

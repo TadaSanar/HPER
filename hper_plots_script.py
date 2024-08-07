@@ -5,8 +5,8 @@ Created on Fri Apr 19 10:08:18 2024
 
 @author: atiihone
 """
-from hper_repetitions_simplified import build_filenames, cg, p_above, set_bo_settings
-from hper_bo_simplified import predict_points, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
+from hper_repetitions import build_filenames, cg, p_above, set_bo_settings
+from hper_bo import predict_points, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
 import numpy as np
 import os
 import matplotlib.pyplot as plt

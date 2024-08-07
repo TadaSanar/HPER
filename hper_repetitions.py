@@ -14,7 +14,7 @@ import seaborn as sn
 import pandas as pd
 import numpy as np
 from numpy.random import SeedSequence
-from hper_bo_simplified import bo_sim_target, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
+from hper_bo import bo_sim_target, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
 from scipy.special import erf, erfinv
 
 import scipy as sp
@@ -24,9 +24,7 @@ from tqdm.contrib.concurrent import process_map
 import tqdm
 import time
 
-import GPyOpt#t_DF as GPyOpt
-
-
+import GPyOpt
 import GPy
 
 import psutil

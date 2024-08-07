@@ -57,7 +57,7 @@ To install, clone the following repository and sub-repository:
 `$ conda env create -f environment_temp_across_platforms_versions_fixed.yml`
 `$ conda activate hper2`
 
-Run HPER/hper_repetitions_less_memory.py
+Run HPER/hper_repetitions.py
 
 ## Implementing data fusion and human involvement in other Bayesian optimization packages
 

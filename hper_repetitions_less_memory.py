@@ -24,7 +24,9 @@ from tqdm.contrib.concurrent import process_map
 import tqdm
 import time
 
-import GPyOpt
+import GPyOpt#t_DF as GPyOpt
+
+
 import GPy
 
 import psutil
@@ -285,23 +287,23 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240805/HO/Noisy-jitter01-serial/'
+    folder = './Results/20240806/Test-new-env-serial/'
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 50, # Repetitions of the whole BO process.
-                 'n_rounds': 100, # Number of rounds in one BO.
+    bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
+                 'n_rounds': 20, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
-                 'noise_target': 1  # Noise level of the target variable (between [0,1])
+                 'noise_target': 0.001  # Noise level of the target variable (between [0,1])
                  }
     
-    noise_df = 1 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
+    noise_df = 0.001 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
 
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     # Give False if you don't want to save disk space while saving the data.
     save_disk_space = True
     # Give True if you want to close the figures immediately after they are created.
@@ -328,7 +330,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
             data_fusion_property = 'quality'
             df_data_coll_method = 'model_all'
-            acquisition_function = 'EI_DFT'
+            acquisition_function = 'EI_DF'
             c_grad = None
             c_e = None
             # Which data to fetch (if you only fetch and do not calculate new)?
@@ -341,7 +343,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
             df_data_coll_method = 'model_necessary_eig'
             c_grad = hyperparams_eig[(m % n_hpars)-2][0]
             c_e = hyperparams_eig[(m % n_hpars)-2][1]
-            acquisition_function = 'EI_DFT'
+            acquisition_function = 'EI_DF'
             color = sn.color_palette()[1]
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
@@ -358,7 +360,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
             df_data_coll_method = 'model_necessary_exclz'
             c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
             c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
-            acquisition_function = 'EI_DFT'
+            acquisition_function = 'EI_DF'
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
             color = sn.color_palette()[3]
@@ -633,7 +635,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
         plt.show()
 
-        if acquisition_function == 'EI_DFT':
+        if acquisition_function == 'EI_DF':
 
             # Plot N_data_fusion_data vs BO_rounds.
 

@@ -15,7 +15,7 @@ import matplotlib.tri as tri
 import datetime
 
 from plotting_v2 import init_plots, plot_mean_and_data, plot_std_only, plot_acq_only, fill_ternary_grid
-from GPyOpt.acquisitions.EI_DFT import GP_model, calc_P
+import GPyOpt_DF as GPyOpt
 
 def fill_ternary_grids(mean, std, p, rounds, df_models, points, beta, midpoint, y_train_data = None):
     
@@ -38,7 +38,7 @@ def fill_ternary_grids(mean, std, p, rounds, df_models, points, beta, midpoint, 
             # : Here the posterior mean and std_dv+acquisition function are calculated.
             mean[i], std[i] = fill_ternary_grid(mean[i], std[i], df_models[i], points, y_train_data = y_t)
         
-            m, p[i] = calc_P(points, df_models[i], beta = beta, midpoint = midpoint)        
+            m, p[i] = GPyOpt.acquisitions.EI_DF.calc_P(points, df_models[i], beta = beta, midpoint = midpoint)        
 
     return mean, std, p
 

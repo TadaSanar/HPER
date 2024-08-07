@@ -8,13 +8,12 @@ MIT Photovoltaics Laboratory
 import pandas as pd
 import numpy as np
 import os
-import matplotlib
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import datetime
 import GPy
-import GPyOpt
+import GPyOpt_DF as GPyOpt
 #from hper_bo_simplified import create_grid, create_ternary_grid, predict_points
 
 #script_dir = os.path.dirname(__file__)
@@ -198,14 +197,14 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
                          edgecolors='black', linewidths=.5, alpha=1, zorder=2,
                          norm=norm)
     
-    myformatter=matplotlib.ticker.ScalarFormatter()
+    myformatter=mpl.ticker.ScalarFormatter()
     myformatter.set_powerlimits((0,2))
     if (cbar_spacing is not None) and (cbar_ticks is not None):
         cbar=plt.colorbar(im, ax=ax, spacing=cbar_spacing, ticks=cbar_ticks)
     elif cbar_ticks is not None:
         cbar=plt.colorbar(im, ax=ax, ticks=cbar_ticks)
     else:
-        cbar=plt.colorbar(im, ax=ax, format=myformatter, spacing=surf_levels, 
+        cbar=plt.colorbar(im, ax=ax, format=myformatter, #spacing=surf_levels, 
                           ticks=surf_levels[tick_idx])
         
     cbar.ax.tick_params(labelsize=8)
@@ -308,8 +307,14 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
         cdict['blue'].append((si, b, b))
         cdict['alpha'].append((si, a, a))
 
-    newcmap = matplotlib.colors.LinearSegmentedColormap(name, cdict)
-    plt.register_cmap(cmap=newcmap)
+    if name not in list(mpl.colormaps):
+        
+        newcmap = mpl.colors.LinearSegmentedColormap(name, cdict)
+        plt.register_cmap(cmap=newcmap)
+        
+    else:
+        
+        raise Exception('A new colormap with the same name cannot be created.')
 
     return newcmap
 '''
@@ -500,7 +505,7 @@ def define_norm_for_surf_plot(target, color_lims = None):
         lims[0] = lims[0] - np.abs(lims[0]/2)
         lims[1] = lims[1] + np.abs(lims[1]/2)
     
-    norm = matplotlib.colors.Normalize(vmin=lims[0], vmax=lims[1])
+    norm = mpl.colors.Normalize(vmin=lims[0], vmax=lims[1])
     
     return norm
     
@@ -536,10 +541,14 @@ def init_acq_plot(points, acq, cmap_base):
 
     if cmap_base == 'RdBu':
     	
-    	orig_cmap = mpl.cm.RdBu
+        orig_cmap = mpl.cm.RdBu
     	# Shift the colormap (in order to remove the red background that appears with the standard version of the colormap).
-    	shifted_cmap = shiftedColorMap(orig_cmap, start=0, midpoint=0.000005, stop=1, name='shifted')
-    	cmap_name = 'shifted'
+        cmap_name = 'shifted_cm'
+        
+        if not(cmap_name in list(mpl.colormaps)):
+            
+            shiftedColorMap(orig_cmap, start=0, midpoint=0.000005, stop=1, name=cmap_name)
+            
     else:
     	
     	# Use user defined colormap and do nothing else.

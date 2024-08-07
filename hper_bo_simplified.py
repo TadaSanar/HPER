@@ -255,7 +255,7 @@ def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
             #logging.log(21, message)
 
 
-def data_fusion_with_ei_dft_param_builder(acquisition_function, 
+def data_fusion_with_ei_df_param_builder(acquisition_function, 
                                           data_fusion_settings = None
                                           #data_fusion_target_property='dft',
                                           #data_fusion_input_variables=[
@@ -264,17 +264,17 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
                          ):
     
     '''
-    This function builds a properly formatted param dictionary for EI_DFT
+    This function builds a properly formatted param dictionary for EI_DF
     acquisition function when using bo_sim_target().
 
-    The only acquisition_type implemented is 'EI_DFT'. The allowed options for
+    The only acquisition_type implemented is 'EI_DF'. The allowed options for
     data_fusion_target_variable are 'dft', 'visual', or 'cutoff'. If the rest
     of the variables are None, hard-coded default values listed in this function
     will be resumed.
     
     '''
 
-    if (acquisition_function != 'EI_DFT'):
+    if (acquisition_function != 'EI_DF'):
         
         raise Exception("This function has not been designed for the " +
                         "requested acquisition function: " + 
@@ -405,7 +405,7 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
         #
         #        data_fusion_data[i] = pd.concat(data_fusion_data[i])
                 
-        ei_dft_params = {'df_data': None, #data_fusion_data,
+        ei_df_params = {'df_data': None, #data_fusion_data,
                          'df_target_var': variable,
                          'df_target_prop': data_fusion_settings['df_target_property_name'],
                          'df_input_var': p['df_input_variables'],
@@ -415,7 +415,7 @@ def data_fusion_with_ei_dft_param_builder(acquisition_function,
                          'p_midpoint': p_midpoint
                          }
     
-    return ei_dft_params
+    return ei_df_params
 
 
 def acq_param_builder(acquisition_function, optional_data_fusion_settings = None,
@@ -424,7 +424,7 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
                       optional_acq_settings = None):
     """
     Build a parameter dictionary to describe the acquisition function.
-    Implemented only for EI and EI_DFT acquisition functions.
+    Implemented only for EI and EI_DF acquisition functions.
 
     Parameters
     ----------
@@ -441,7 +441,7 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
     ------
     Exception
         Raised when data fusion is requested but the acquisition function is
-        other than EI_DFT.
+        other than EI_DF.
 
     Returns
     -------
@@ -451,10 +451,10 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
 
     """
     
-    if acquisition_function == 'EI_DFT':
+    if acquisition_function == 'EI_DF':
         
         # Do data fusion. Set the parameters required for data fusion.
-        acq_fun_params = data_fusion_with_ei_dft_param_builder(acquisition_function,
+        acq_fun_params = data_fusion_with_ei_df_param_builder(acquisition_function,
                                               data_fusion_settings = optional_data_fusion_settings
                                               #data_fusion_target_property=data_fusion_property,
                                               #data_fusion_input_variables=data_fusion_input_variables,
@@ -473,7 +473,7 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
     
     # Set the rest of acquisition function parameters.
     
-    if (acquisition_function == 'EI') or (acquisition_function == 'EI_DFT'):
+    if (acquisition_function == 'EI') or (acquisition_function == 'EI_DF'):
     
         if optional_acq_settings is not None:
             
@@ -493,14 +493,14 @@ def acq_fun_param2descr(acq_fun, acq_fun_params=None):
 
     output_str = acq_fun
 
-    if acq_fun == 'EI_DFT':
+    if acq_fun == 'EI_DF':
 
-        ei_dft_params = acq_fun_params
-        output_str = (output_str + '-dftarget-' + ei_dft_params['df_target_prop'] +
-                      '-lengthscale-' + str(ei_dft_params['gp_lengthscale']) +
-                      '-variance-' + str(ei_dft_params['gp_variance']) +
-                      '-p_beta-' + str(ei_dft_params['p_beta']) +
-                      '-p_midpoint-' + str(ei_dft_params['p_midpoint']))
+        ei_df_params = acq_fun_params
+        output_str = (output_str + '-dftarget-' + ei_df_params['df_target_prop'] +
+                      '-lengthscale-' + str(ei_df_params['gp_lengthscale']) +
+                      '-variance-' + str(ei_df_params['gp_variance']) +
+                      '-p_beta-' + str(ei_df_params['p_beta']) +
+                      '-p_midpoint-' + str(ei_df_params['p_midpoint']))
         
     if acq_fun_params is not None:
         
@@ -1413,19 +1413,19 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
     manually.
 
     Acquisition function options are the ones available by default in GPyOpt,
-    additionally, there is 'EI_DFT'. With EI_DFT, one MUST deliver the correct
+    additionally, there is 'EI_DF'. With EI_DF, one MUST deliver the correct
     acq_fun_params, otherwise the code fails. This option will use the
     acq_fun_params for building a Gaussian Process Regression model
     that will be used as the basis for data fusion -aided acquisition.
 
     Explanation for acq_fun_params: Three-element vector assumed with
-    parameters built using ei_dft_param_builder() as the first element,
+    parameters built using ei_df_param_builder() as the first element,
     the name of the data fusion property as the second element (valid options
     are 'dft', 'visual', or 'cutoff'; 'cutoff' implementation has not been
     tested),
     a string defining how the data fusion data will be used as the third
     element (valid options are 'files' i.e. forward the data fusion data to
-    EI_DFT directly, which is to be used with IRL data; and 'model_none'/
+    EI_DF directly, which is to be used with IRL data; and 'model_none'/
     'model_all'/'model_necessary' which all fit a GPR model on all the data
     provided to serve as a ground truth source, and sample from it never/all
     the samples/when the algo defines it necessary).
@@ -1840,7 +1840,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
                time_str=time_now, results_folder=results_folder,
                minimize = True, close_figs = close_figs)
 
-        if acquisition_function == 'EI_DFT':
+        if acquisition_function == 'EI_DF':
 
             # Plot ternary-specific plots regarding data fusion.
             plotDF(rounds, materials, data_fusion_models,
@@ -1914,7 +1914,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
         #BO_objects[0:(-1)] = [None] * (len(BO_objects) - 1)
         BO_objects = [None] * (len(BO_objects))
         
-        if acquisition_function == 'EI_DFT':
+        if acquisition_function == 'EI_DF':
             
             #data_fusion_models[0:(-1)] = [None] * (len(data_fusion_models) - 1)
             data_fusion_models = [None] * (len(data_fusion_models))

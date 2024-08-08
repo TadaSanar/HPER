@@ -261,11 +261,11 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000, '\n')
 
     
-    c_eig = [0.4, 0.8]#, 1]#[0.75]  # Expected information gain.
+    c_eig = [0.5]#, 1]#[0.75]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
     c_exclz = [5]#, 20]#[20]
     # Gradient limit. When the number is higher, the criterion picks less points. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.9, 0.6])))#list(cg(np.array([0.6])))
+    c_g = list(cg(np.array([0.9])))#list(cg(np.array([0.6])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -278,18 +278,18 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
             hyperparams_eig.append((c_g[i], c_eig[j]))
 
-    jitters = [0.1]
+    jitters = [0.01, 0.1]
 
     n_eig = len(hyperparams_eig)
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240807/Test-new-env/Serial/' # $WRKDIR/Results/ for the server
+    folder = './Results/20240808/Test-new-env3/Serial/' # $WRKDIR/Results/ for the server
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 2, # Repetitions of the whole BO process.
-                 'n_rounds': 10, # Number of rounds in one BO.
+    bo_params = {'n_repetitions': 10, # Repetitions of the whole BO process.
+                 'n_rounds': 20, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
@@ -301,11 +301,11 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     # Give False if you don't want to save disk space while saving the data.
     save_disk_space = False
     # Give True if you want to close the figures immediately after they are created.
-    close_figs = True
+    close_figs = False
     
     log_progress = False
     
@@ -701,7 +701,7 @@ if __name__ == "__main__":
     path_gtmodel_humanevals = './Source_data/visualquality/human_model_scale0to1' #'./Source_data/visualquality/Human_GPR_model_20220801' # GPy.models.gp_regression.GPRegression
     
     # Number of methods to be tested.
-    m_total = 2
+    m_total = 8
     
     # Load the starting points for BO. Every method will
     # share these same init points.

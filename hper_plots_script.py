@@ -89,7 +89,7 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
         df_data_coll_method = 'model_all'
         c_grad = None
         c_e = None
-        acquisition_function = 'EI_DFT'
+        acquisition_function = 'EI_DF'
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = None
         color = sn.color_palette()[2]
@@ -102,7 +102,7 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
         df_data_coll_method = 'model_necessary_eig'
         c_grad = hyperparams_eig[(m % n_hpars)-2][0]
         c_e = hyperparams_eig[(m % n_hpars)-2][1]
-        acquisition_function = 'EI_DFT'
+        acquisition_function = 'EI_DF'
         color = sn.color_palette()[1]
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = None
@@ -115,7 +115,7 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
         df_data_coll_method = 'model_necessary_exclz'
         c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
         c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
-        acquisition_function = 'EI_DFT'
+        acquisition_function = 'EI_DF'
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = None
         color = sn.color_palette()[3]
@@ -578,12 +578,9 @@ def create_plot(df_data_long, name_in_legend, color, legend_list,
                 xlim=None):
 
     if fig_handle is None:
-        current_fig = plt.figure()
+        fig, ax = plt.subplots()
     else:
-        current_fig = fig_handle
-
-    plt.figure(current_fig.number)
-    ax = plt.axes()
+        fig, ax = fig_handle
 
     # Mean values
     sn.lineplot(data=df_data_long, x='Round', y=df_data_long.columns[0],
@@ -607,7 +604,7 @@ def create_plot(df_data_long, name_in_legend, color, legend_list,
                  '--k', linewidth=0.5)
         legend_list.append('Ground truth region')
 
-    plt.gcf().set_size_inches(figsize)
+    fig.set_size_inches(figsize)#plt.gcf().set_size_inches(figsize)
     plt.tight_layout()
 
     if fig_handle is None:
@@ -624,7 +621,7 @@ def create_plot(df_data_long, name_in_legend, color, legend_list,
     # If fig_handle is not None: Multiple plots will be placed into the same fig,
     # Therefore legend are created only at the end of the loop.
 
-    return current_fig, legend_list
+    return [fig, ax], legend_list
 
 
 def plot_check_ref_save(m, datatype_idx, dataframe_longs, gt_reference, fig_handle,
@@ -891,14 +888,12 @@ def create_barplot(data_mean, data_std, name_in_legend, color,
                    ground_truth_reference=None, ylim=1.00, figname='fig'):
 
     if fig_handle is None:
-        current_fig = plt.figure()
+        fig, ax = plt.subplots()
     else:
-        current_fig = fig_handle
+        fig, ax = fig_handle
 
-    plt.figure(current_fig.number)
-
-    ax = plt.axes()
-
+    plt.figure(fig.number)
+    
     #bar = series_boolean.astype(int).mean()
 
     x = name_in_legend.copy()
@@ -911,7 +906,7 @@ def create_barplot(data_mean, data_std, name_in_legend, color,
     e = data_std
 
     # Mean values
-    sn.barplot(x, y, ax=ax)
+    sn.barplot(x=x, y=y, ax=ax)
     plt.xticks(rotation=20)
 
     plt.ylabel(ylabel)
@@ -927,7 +922,7 @@ def create_barplot(data_mean, data_std, name_in_legend, color,
     plt.gcf().savefig(figname + '.svg', transparent=True)
     plt.gcf().savefig(figname + '.png', dpi=300)
 
-    return current_fig
+    return [fig, ax]
 
 
 def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n_samples_rB_of_opt, name_legend_all, colors_all, fig_handle, folder, legends_visible):
@@ -978,22 +973,22 @@ def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n
 
 # Folder of experiments to plot.
 # 20240423/Noiseless-BbetterthanA-noiseeste-12-add-constr-ard-norm-Mat52kernel/'#'20231129-noisytarget-noisyhuman-ho-j001/'#'./Results/triton/20230823-noisytarget-noisyhuman-ho/'
-folder = './Results/20240807/HO_parallel_real/Noise-free/'
+folder = './Results/20240808/Test-new-env2/Serial/'
 
 # Experiments with the listed hyperparam range will be plotted.
 
 # [0, 0.2, 0.5, 0.8, 1]#[0, 0.5, 0.75, 0.9, 1, 2]  # Expected information gain.
-c_eig = [0.2, 0.4, 0.6, 0.8, 1]
+c_eig = [0.4, 0.8]
 # Size of the exclusion zone in percentage points (max. 100)
-c_exclz = [1, 5, 10, 20, 30]  # [0,1,5,10,20]#[1, 5, 10, 20]
+c_exclz = [5]  # [0,1,5,10,20]#[1, 5, 10, 20]
 # Gradient limit. When the number is higher, the criterion picks less points.
 # 0.2, 0.5, 0.8, 1])))#list(cg(np.array([0.2, 0.5, 0.6, 0.8, 1])))
-c_g = list(cg(np.array([0.9, 0.8, 0.6, 0.4])))
+c_g = list(cg(np.array([0.9, 0.6])))
 
-jitters = [0.01, 0.1]
+jitters = [0.1]
 
-bo_params = {'n_repetitions': 25,
-             'n_rounds': 18,
+bo_params = {'n_repetitions': 2,
+             'n_rounds': 20,
              'n_init': 3,
              'batch_size': 1,
              'materials': ['CsPbI', 'MAPbI', 'FAPbI'],
@@ -1051,14 +1046,14 @@ legend_list = [[], [], [], [], [], [], [], []]
 
 if to_same_plot:
 
-    fo = plt.figure()  # Optimum figure
-    fra = plt.figure()  # Regret from region A figure
-    fn = plt.figure()  # N data fusion points figure
-    fb = plt.figure()  # Simple bar plot on regions A/B
+    fo = plt.subplots()  # Optimum figure, axis
+    fra = plt.subplots()  # Regret from region A figure
+    fn = plt.subplots()  # N data fusion points figure
+    fb = plt.subplots()  # Simple bar plot on regions A/B
     fregion = None  # Plot not implemented
     fls = None  # Plot not implemented
     fvar = None  # Plot not implemented
-    frb = plt.figure()  # Regret from region B figure
+    frb = plt.subplots()  # Regret from region B figure
 
 else:
 
@@ -1190,11 +1185,10 @@ if to_same_plot:
 
     for k in range(len(fig_handles)):
 
-        current_fig = fig_handles[k]
-
         # If the figure has been created.
-        if current_fig is not None:
-
+        if fig_handles[k] is not None:
+            
+            current_fig, _ = fig_handles[k]
             plt.figure(current_fig.number)
 
             if legends_visible:

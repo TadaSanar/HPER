@@ -32,14 +32,14 @@ def inv_sigmoid(mean, midpoint, beta):
 # synthesized samples are of high quality?
 # Default value is 0.66 (explanation: we evaluated sample quality using a 
 # 4-level rating of {0, 0.33, 0.66, 1}).
-x_50 = 0.66
+x_50 = 0.5
 
 # Which numeric sample quality rating will you give when 80% of the
 # synthesized samples are of high quality?
 # Default value is 0.5 (explanation: we evaluated sample quality using a 
 # 4-level rating of {0, 0.33, 0.66, 1} and wanted the algorithm to remain
 # conservative regarding ruling any samples fully out from the search).
-x_80 = 0.55
+x_80 = 0.33
 
 ###############################################################################
 # NO CHANGES NEEDED

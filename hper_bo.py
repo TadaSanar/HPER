@@ -356,9 +356,9 @@ def data_fusion_with_ei_df_param_builder(acquisition_function,
             if p['variance'] == None:  # For GPR
                 variance = 0.5 #0.1 # Assumes the quality data is roughly zero mean unit variance.
             if p['p_beta'] == None:  # For probability model
-                p_beta = 0.08#0.1
+                p_beta = 0.12#0.1
             if p['p_midpoint'] == None:  # For P model
-                p_midpoint = 0.66#0.5  # For P
+                p_midpoint = 0.5  # For P
 
         elif data_fusion_settings['df_target_property_name'] == 'cutoff':
 
@@ -1730,6 +1730,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
         # Define and fit BO object.
         # f=None because this code will be adapted in future for experimental
         # BO cycles.
+        
         BO_objects[k] = GPyOpt.methods.BayesianOptimization(f=None,
                                                             domain=bounds,
                                                             constraints=constraints[k],
@@ -1789,6 +1790,7 @@ def bo_sim_target(#bo_ground_truth_model_path='./Source_data/C2a_GPR_model_with_
             data_fusion_variances[k] = current_df_model.kern.variance[0]
             data_fusion_gaussian_noises[k] = current_df_model.Gaussian_noise.variance[0]
             
+        
         
     
     ###########################################################################

@@ -20,8 +20,8 @@ from scipy.special import erf, erfinv
 import scipy as sp
 
 import multiprocessing as mp
-from tqdm.contrib.concurrent import process_map
-import tqdm
+#from tqdm.contrib.concurrent import process_map
+#import tqdm
 import time
 
 import GPyOpt
@@ -261,11 +261,11 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000, '\n')
 
     
-    c_eig = [0.2, 0.4, 0.6, 0.8, 1]#, 1]#[0.75]  # Expected information gain.
+    c_eig = [0.1, 0.2, 0.4, 0.6, 0.8]#, 1]#[0.75]  # Expected information gain.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [1, 5, 10, 20, 30]#, 20]#[20]
+    c_exclz = [1, 5, 10, 20, 25]#, 20]#[20]
     # Gradient limit. When the number is higher, the criterion picks less points. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.9, 0.8, 0.6, 0.4])))#list(cg(np.array([0.6])))
+    c_g = list(cg(np.array([0.9, 0.6, 0.1])))#list(cg(np.array([0.6])))
 
     hyperparams_eig = []
     hyperparams_exclz = []
@@ -285,11 +285,11 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     n_hpars = 2 + n_eig + n_exclz
     n_j = len(jitters)
 
-    folder = './Results/20240807/HO_parallel/Noise-free/'
+    folder = '$WRKDIR/Results/20240808/Test-new-env/Serial/' # $WRKDIR/Results/ for the server
     ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
-                 'n_rounds': 18, # Number of rounds in one BO.
+    bo_params = {'n_repetitions': 10, # Repetitions of the whole BO process.
+                 'n_rounds': 20, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
@@ -301,11 +301,11 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     # Give True if you don't want to run new BO but only fetch old results and re-plot them.
     fetch_old_results = False
     # Give False if you don't want to save the figures.
-    save_figs = False
+    save_figs = True
     # Give False if you don't want to save disk space while saving the data.
-    save_disk_space = True
+    save_disk_space = False
     # Give True if you want to close the figures immediately after they are created.
-    close_figs = True
+    close_figs = False
     
     log_progress = False
     
@@ -701,7 +701,7 @@ if __name__ == "__main__":
     path_gtmodel_humanevals = './Source_data/visualquality/human_model_scale0to1' #'./Source_data/visualquality/Human_GPR_model_20220801' # GPy.models.gp_regression.GPRegression
     
     # Number of methods to be tested.
-    m_total = 84
+    m_total = 64
     
     # Load the starting points for BO. Every method will
     # share these same init points.
@@ -743,13 +743,15 @@ if __name__ == "__main__":
     except KeyError:
         ncpus = mp.cpu_count()
     
+    print('Number of CPUs used: ', ncpus)
+    
     # Load source data models. The implemented code assumes these models do not
     # output scaled values but data in real units.
     global gt_model_targetprop
     gt_model_targetprop = load_GP_model(path_gtmodel_targetprop) # Perovskite stability data (units in [px*min]), 0 px*min is fully stable and high values are instable
     global gt_model_human
     gt_model_human = load_GP_model(path_gtmodel_humanevals) # Human opinion on sample quality data, scale [0,1], where 1 is bad quality and 0 is high quality.
-    '''
+    
     # This is a serial version of the code.
     for i in range(m_total):
         
@@ -765,7 +767,7 @@ if __name__ == "__main__":
                                 starting_point_candidates=init_points),
                         range(m_total), max_workers=ncpus)
     
-    
+    '''
 '''
 Human does not look like it has been fitted properly. Check settings. Try to
 fit a new GP with these hyperparam.

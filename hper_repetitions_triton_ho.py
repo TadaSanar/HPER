@@ -91,7 +91,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date = set_repeat_settings(
         m, c_g, c_exclz, c_eig, jitters)
     
-    if (m > 0):
+    if (m > -1):
         
         ###############
         # Typically, one does not need to modify these inputs.

@@ -5,8 +5,9 @@ Created on Fri Apr 19 10:08:18 2024
 
 @author: atiihone
 """
-from hper_repetitions import build_filenames, cg, p_above, set_bo_settings
-from hper_bo import predict_points, acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
+from hper_repetitions_debugging import build_filenames, cg, p_above, set_bo_settings
+from hper_util_bo import acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
+from hper_util_gp import predict_points
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -127,12 +128,12 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
 
 
 def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
-              jitters, bo_params, noise_df, folder, dates_list):
+              jitters, bo_params, noise_df, folder, date_str):
 
     acquisition_function, jitter, data_fusion_property, df_data_coll_method, c_grad, c_e, color, name_in_legend = set_acqf_plotcolor_legend(
         m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz, jitters)
 
-    fetch_file_date = dates_list[m]
+    fetch_file_date = date_str
     
     acq_fun_descr, acq_fun_params, df_data_coll_descr, df_data_coll_params = set_bo_settings(
         bo_params, acquisition_function, jitter, data_fusion_property, 
@@ -143,64 +144,6 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
         folder, bo_params, acq_fun_descr, df_data_coll_descr,
         fetch_file_date=fetch_file_date, m=m)
     
-    '''
-    
-    if df_property is None:
-        
-        optional_data_fusion_settings = None
-        
-    else:
-        
-        optional_data_fusion_settings = {'df_target_property_name': df_property,
-                                         'df_input_variables': bo_params['materials']
-                                         }
-        
-    acq_fun_params = acq_param_builder(af,
-                                       optional_data_fusion_settings = optional_data_fusion_settings,
-                                       #data_fusion_property=data_fusion_property,
-                                       #data_fusion_input_variables=bo_params['materials'],
-                                       #data_fusion_model = gt_model_human,
-                                       optional_acq_settings = {'jitter': jitter}
-                                       )
-    
-    acq_fun_descr = acq_fun_param2descr(
-        af, acq_fun_params = acq_fun_params)
-    
-    ##
-    #
-    #acq_fun_params = acq_param_builder(af,
-    #                                   optional_data_fusion_settings = optional_data_fusion_settings,
-    #                                   #data_fusion_property=df_property,
-    #                                   #data_fusion_input_variables=bo_params['materials'],
-    #                                   optional_acq_settings={'jitter': jitter}
-    #                                   )
-    #acq_fun_descr = acq_fun_param2descr(af, acq_fun_params=acq_fun_params)
-
-    if df_property is None:
-
-        df_data_coll_params = df_data_coll_param_builder()
-
-    elif (df_data_coll_method == 'model_all') or (df_data_coll_method == 'model_none'):
-
-        df_data_coll_params = df_data_coll_param_builder(
-            df_method=df_data_coll_method, noise_df=noise_df)
-
-    else:
-
-        df_data_coll_params = df_data_coll_param_builder(df_method=df_data_coll_method,
-                                                         gradient_param=c_grad,
-                                                         exclusion_param=c_e,
-                                                         noise_df=noise_df)
-
-    df_data_coll_descr = df_data_coll_method_param2descr(df_data_coll_params)
-
-    pickle_filenames, figure_filenames, t_folder = build_filenames(folder, bo_params,
-                                                                   acq_fun_descr,
-                                                                   df_data_coll_descr,
-                                                                   fetch_file_date=current_date,
-                                                                   m=m)
-
-    '''
     pickle_variables = []
     
     for s in pickle_filenames:
@@ -243,12 +186,20 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
     
     # Save key results into more convenient Numpy arrays.
 
-    n_repeats = len(res_orig['X_accum'])
-    n_rounds = len(res_orig['X_accum'][0])
+    n_repeats = bo_params['n_repetitions']
+    n_rounds = bo_params['n_rounds']
     n_dims = res_orig['X_accum'][0][0].shape[1]
-    n_init = res_orig['X_accum'][0][0].shape[0]
-    batch_size = res_orig['X_accum'][0][1].shape[0]-n_init
+    n_init = bo_params['n_init']
+    batch_size = bo_params['batch_size']
     n_samples = res_orig['X_accum'][0][-1].shape[0]
+    
+    # The result file does not contain all the rounds, i.e., the run has gotten
+    # interrupted at some point and then continued.
+    if n_repeats > len(res_orig['X_accum']):
+        
+        raise Exception('The files do not contain as many repetitions as it ',
+                        'should contain. Please create a repetition file ',
+                        'manually! File: ', pickle_filenames[1])
 
     X_accum = np.full((n_repeats, n_rounds, n_samples, n_dims), np.nan)
     Y_accum = np.full((n_repeats, n_rounds, n_samples, 1), np.nan)
@@ -265,12 +216,16 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
         df_data_X_accum = np.full(
             (n_repeats, n_rounds, n_samples, n_dims), np.nan)
         df_data_Y_accum = np.full((n_repeats, n_rounds, n_samples, 1), np.nan)
+        df_data_X_final = np.full((n_repeats, n_samples, n_dims), np.nan)
+        df_data_Y_final = np.full((n_repeats, n_samples, 1), np.nan)
         df_data_n_samples = np.full((n_repeats, n_rounds, 1), np.nan)
 
     else:
 
         df_data_X_accum = None
         df_data_Y_accum = None
+        df_data_X_final = None
+        df_data_Y_final = None
         df_data_n_samples = None
 
     Y_opt = res_orig['optima'][:, :, [-1]]
@@ -292,13 +247,6 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
             X_accum[i, j, 0:n_samples_current, :] = res_orig['X_accum'][i][j]
             Y_accum[i, j, 0:n_samples_current, :] = res_orig['Y_accum'][i][j]
 
-            # Optimum value and location for each round.
-            
-            #idx_opt = np.argwhere(
-            #    Y_accum[i, j, :, :] == res_orig['optima'][i, j])[0, 0]
-            #Y_opt[i, j, :] = Y_accum[i, j, idx_opt, :]
-            #X_opt[i, j, :] = X_accum[i, j, idx_opt, :]
-            
             
             # Data fusion datapoints accumulating by each round.
 
@@ -306,35 +254,27 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
 
                 # Data fusion data exists.
 
-                #if j > 0:
-                #
-                #    # Copy data from previous round.
-                #    df_data_X_accum[i, j, 0:n_df_samples, :] = df_data_X_accum[
-                #        i, j-1, 0:n_df_samples, :]
-                #    df_data_Y_accum[i, j, 0:n_df_samples, :] = df_data_Y_accum[
-                #        i, j-1, 0:n_df_samples, :]
                 
                 n_df_samples_current = res_orig['df_data'][i]['df_data_accum'][j].shape[0]
                 
                 df_data_X_accum[i, j, 0:n_df_samples_current, :] = res_orig[
                     'df_data'][i]['df_data_accum'][j].iloc[:, 0:n_dims]
-                df_data_X_accum[i, j, 0:n_df_samples_current, :] = res_orig[
+                df_data_Y_accum[i, j, 0:n_df_samples_current, :] = res_orig[
                     'df_data'][i]['df_data_accum'][j].iloc[:, [-1]]
-
-                #df_data_X_accum[i, j, n_df_samples:(n_df_samples +
-                #                                    n_df_samples_current),
-                #                :] = res_orig['df_data'][i][j].iloc[:, 0:n_dims]
-                #df_data_Y_accum[i, j, n_df_samples:(n_df_samples +
-                #                                    n_df_samples_current),
-                #                :] = res_orig['df_data'][i][j].iloc[:, [-1]]
-
-                n_df_samples = n_df_samples_current #n_df_samples + n_df_samples_current
+                
+                n_df_samples = n_df_samples_current
 
                 df_data_n_samples[i, j, :] = n_df_samples
 
         # Final dataset (target data).
         X_final[i, :, :] = res_orig['X_accum'][i][j]
         Y_final[i, :, :] = res_orig['Y_accum'][i][j]
+        
+        if len(res_orig['df_data']) != 0:
+
+            # Data fusion data exists.
+            df_data_X_final[i,0:n_df_samples,:] = df_data_X_accum[i,-1,0:n_df_samples,:]
+            df_data_Y_final[i,0:n_df_samples,:] = df_data_Y_accum[i,-1,0:n_df_samples,:]
     
     if res_orig['exemplary_run_data'] is not None:
         
@@ -368,6 +308,8 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
            'Y_model_opt': Y_model_opt,
            'df_data_X_accum': df_data_X_accum,
            'df_data_Y_accum': df_data_Y_accum,
+           'df_data_X_final': df_data_X_final,
+           'df_data_Y_final': df_data_Y_final,
            'df_data_n_samples': df_data_n_samples,
            'bo_object_examples': bo_objects,
            'next_suggs_examples': suggestions_for_next_X,
@@ -767,8 +709,8 @@ def read_key_ho_results(res_all, n_df_wides, regret_rA_wides, regret_rB_wides,
     m_max = len(res_all)
 
     n_humans = np.zeros((bo_params['n_rounds'], m_max))
-    regrets_rA = np.full((bo_params['n_rounds'], m_max), 10**5)
-    regrets_rB = np.full((bo_params['n_rounds'], m_max), 10**5)
+    regrets_rA = np.full((bo_params['n_rounds'], m_max), 10.0**5)
+    regrets_rB = np.full((bo_params['n_rounds'], m_max), 10.0**5)
 
     for m in range(m_max):
 
@@ -786,7 +728,7 @@ def read_key_ho_results(res_all, n_df_wides, regret_rA_wides, regret_rB_wides,
 
     n_humans = np.reshape(n_humans, (n_jitters, n_methods))
     regrets_rA = np.reshape(regrets_rA, (n_jitters, n_methods))
-    #regrets_rB = np.reshape(regrets_rB, (n_jitters, n_methods))
+    regrets_rB = np.reshape(regrets_rB, (n_jitters, n_methods))
 
     return n_humans, regrets_rA, regrets_rB
 
@@ -803,6 +745,9 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
     n_methods = jitters.shape[1]
     n_humans, regrets_rA, regrets_rB = read_key_ho_results(res_all, n_df_wides, regret_rA_wides, regret_rB_wides,
                                                            n_jitters, n_methods, regret_interm_idx)
+    
+    print(n_humans)
+    
 
     if plot_proportions is True:
 
@@ -813,11 +758,15 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
                        bo_params['batch_size'])
 
         n_humans = n_humans / n_human_max
+        
+        n_human_max = 1
+        
 
     if share_range is True:
-
-        cbar_ticks = [np.linspace(np.min(n_humans) + 0.01, n_human_max, 5),
-                      np.linspace(np.min(regrets_rA) + 0.01, np.sqrt(2), 5)]
+        
+        cbar_ticks = [np.linspace(0.01, n_human_max, 5),
+                      np.linspace(#np.min(regrets_rA) + 
+                                  0.01, np.sqrt(2), 5)]
     else:
 
         cbar_ticks = [None, None]
@@ -847,7 +796,8 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
                     'jitter_' + str(jitters[i, 0])
 
                 plt.figure()
-                plt.scatter(x_data, y_data[j], c=z_data[k])
+                plt.scatter(x_data, y_data[j], c=z_data[k],
+                            vmin = cbar_ticks[k][0], vmax = cbar_ticks[k][-1])
                 plt.title(title)
                 plt.xlabel(x_label)
                 plt.ylabel(y_label[j])
@@ -973,47 +923,46 @@ def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n
 
 # Folder of experiments to plot.
 # 20240423/Noiseless-BbetterthanA-noiseeste-12-add-constr-ard-norm-Mat52kernel/'#'20231129-noisytarget-noisyhuman-ho-j001/'#'./Results/triton/20230823-noisytarget-noisyhuman-ho/'
-folder = './Results/20240808/Test-new-env2/Serial/'
+folder = './Results/20240831/Test_ho_quick/A/'
 
 # Experiments with the listed hyperparam range will be plotted.
 
 # [0, 0.2, 0.5, 0.8, 1]#[0, 0.5, 0.75, 0.9, 1, 2]  # Expected information gain.
-c_eig = [0.4, 0.8]
+c_eig = [0.05, 0.1] # 0.025
 # Size of the exclusion zone in percentage points (max. 100)
-c_exclz = [5]  # [0,1,5,10,20]#[1, 5, 10, 20]
+c_exclz = [5,10] # [0,1,5,10,20]#[1, 5, 10, 20]
 # Gradient limit. When the number is higher, the criterion picks less points.
 # 0.2, 0.5, 0.8, 1])))#list(cg(np.array([0.2, 0.5, 0.6, 0.8, 1])))
-c_g = list(cg(np.array([0.9, 0.6])))
+c_g = list(cg(np.array([0.8])))
 
-jitters = [0.1]
+jitters = [0.1, 0.5]
 
-bo_params = {'n_repetitions': 2,
-             'n_rounds': 20,
+bo_params = {'n_repetitions': 10,
+             'n_rounds': 50,
              'n_init': 3,
-             'batch_size': 1,
+             'batch_size': 2,
              'materials': ['CsPbI', 'MAPbI', 'FAPbI'],
-             # 1 means 100% of noise accoring to the std of the predictions of the ground truth model.
-             'noise_target': 0
+             # 1 means 100% of noise according to the std of the predictions of the ground truth model.
+             'noise_target': 1
              }
 
 # 1 means 100% of noise accoring to the std of the predictions of the ground truth model.
-noise_df = 0
+noise_df = 1
 
 ###############################################################################
 
 # SETTINGS - PLOTS
 
-# './Source_data/stability_model_improved_region_B'#
-bo_ground_truth_model_path = './Source_data/stability_gt_model_GPR'#'./Source_data/stability_gt_model_GPR' #'./Source_data/stability_model_GPyHomoscedastic'
+bo_ground_truth_model_path = './Source_data/gt_model_traget_variable'#'./Source_data/stability_gt_model_GPR'
 
 # ground_truth_rA = np.array([0.17, 0.03, 0.80])  # From C2a paper
 # From the ground truth model
-ground_truth_rA = np.array([[0.165, 0.04, 0.79]])
-gt_rA_ref_level = 0.1  # Radius of the ground truth optimum region - regret
+ground_truth_rA = np.array([[0.165, 0.035, 0.795]])
+gt_rA_ref_level = 0.2#0.1  # Radius of the ground truth optimum region - regret
 # converged below this level is within the region A.
 
-ground_truth_rB = np.array([[1, 0, 0]])  # Ground truth location of Region B
-gt_rB_ref_level = 1.15  # Regret of region B should reach this value when the
+ground_truth_rB = np.array([[0.835, 0, 0.17]])  # Ground truth location of Region B
+gt_rB_ref_level = 0.913  # Regret of region B should reach this value when the
 # run has converged into region A (not B!).
 
 # Give False if you don't want to save the figures.
@@ -1027,11 +976,11 @@ legends_visible = False
 # When plotting HO results, it may be beneficial to plot+print intermediate
 # regret values if the searches have all converged. Insert the round you want
 # to plot in this case.
-regret_interm_idx = 6
+regret_interm_idx = 49
 
 # Plot w.r.t. to optimum defined as the surrogate model optimum ('model_opt') 
 # or as the sample optimum ('opt').
-opt_key = 0
+opt_key = 1
 opt_types = {0: 'model_opt', 1: 'opt'}
 
 ###############################################################################
@@ -1087,20 +1036,37 @@ hyperparams_eig, hyperparams_exclz, n_eig, n_exclz, n_hpars, n_j = build_hyperpa
     c_eig, c_exclz, c_g, jitters)
 
 dateslist = read_datetimes(folder)
+methodlist = None
 
 res_all = []
 fig_names_all = []
 colors_all = []
 name_legend_all = []
 
-for m in range(len(dateslist)):
+if methodlist is None:
+    
+    iterations = len(dateslist)
+    
+else:
+    
+    iterations = len(methodlist)
+
+for m in range(iterations):
+    
+    if methodlist is None:
+        
+        method = m
+        
+    else:
+        
+        method = methodlist[m]
 
     print('Loading data for method', m, '...')
-    res, results_orig, fig_names, color, name_legend = load_data(m, n_hpars, n_exclz,
+    res, results_orig, fig_names, color, name_legend = load_data(method, n_hpars, n_exclz,
                                                                  hyperparams_eig,
                                                                  hyperparams_exclz, jitters,
                                                                  bo_params, noise_df, folder,
-                                                                 dateslist)
+                                                                 dateslist[m])
     # Results dictionary keys:
     # 'X_accum', 'Y_accum', 'X_final', 'Y_final', 'X_opt', 'Y_opt',
     # 'df_data_X_accum', 'df_data_Y_accum', 'df_data_n_samples',
@@ -1108,10 +1074,10 @@ for m in range(len(dateslist)):
     # 'max_gradients', 'af', 'jitter', 'df_property', 'df_data_coll_method',
     # 'c_grad', 'c_e'
 
-    res['Y_accum'] = res['Y_accum']#/60  # Units to px*h
-    res['Y_final'] = res['Y_final']#/60
-    res['Y_opt'] = res['Y_opt']#/60
-    res['Y_model_opt'] = res['Y_model_opt']#/60
+    #res['Y_accum'] = res['Y_accum']#/60  # Units to px*h
+    #res['Y_final'] = res['Y_final']#/60
+    #res['Y_opt'] = res['Y_opt']#/60
+    #res['Y_model_opt'] = res['Y_model_opt']#/60
     
     # Confirm that all the sampled datapoints are inside the triangle. Will
     # print notifications and create figures if not.
@@ -1137,14 +1103,30 @@ for m in range(len(dateslist)):
 ###############################################################################
 # CREATE SEABORN-COMPATIBLE AND HUMAN-READABLE DATAFRAMES
 
+if methodlist is None:
+    
+    dateslist_selected = dateslist
+    
+else:
+    
+    dateslist_selected = [dateslist[i] for i in methodlist]
+
 [optima_wides, optima_longs, regret_rA_wides, regret_rA_longs, regret_rB_wides,
  regret_rB_longs, n_df_wides, n_df_longs] = create_key_result_dataframes(
-    dateslist, res_all, n_rounds, n_repetitions, opt_types, opt_key)
+    dateslist_selected, res_all, n_rounds, n_repetitions, opt_types, opt_key)
 
 ###############################################################################
 # PLOT CONVERGENCE
+        
+for m in range(iterations):
 
-for m in range(len(dateslist)):
+    if methodlist is None:
+        
+        method = m
+        
+    else:
+        
+        method = methodlist[m]
 
     # Optimum y sampled.
     current_fig, legend_list = opt_plot(m, gt_y, optima_longs,
@@ -1221,7 +1203,7 @@ plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
         regret_interm_idx, folder,
         #regrets_interm_mean, n_humans_mean, n_eig,
         # n_exclz,
-        plot_proportions=True, share_range=False)
+        plot_proportions=True, share_range=True)
 
 
 n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n_samples_rB_of_opt = calc_samples_within_ra_rb(

@@ -67,7 +67,7 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
                                                     normalize_Y=True, # The predict() function implemented in this file assumes that BO has been implemented with zero mean unit std normalization (default in GPyOpt). Modify the predict function if this is not the case.
                                                     X=X,
                                                     Y=Y,
-                                                    evaluator_type='sequential',#'local_penalization',
+                                                    evaluator_type='local_penalization',
                                                     batch_size=batch_size,
                                                     acquisition_jitter=acq_fun_params['jitter'],
                                                     acq_fun_params=acq_fun_params,

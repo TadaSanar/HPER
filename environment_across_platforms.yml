@@ -1,0 +1,13 @@
+name: hper2
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - conda-forge::gpy
+  - pandas
+  - spyder-kernels
+  - matplotlib
+  - tqdm
+  - seaborn
+  - conda-build
+prefix: /u/08/atiihone/unix/anaconda3/envs/hper2

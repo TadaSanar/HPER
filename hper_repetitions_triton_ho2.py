@@ -62,7 +62,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
     jitters = [0.01, 0.1, 0.5]
 
-    folder = '$WRKDIR/Results/20240902/Test_ho_long/0/' # $WRKDIR/Results/ for the server
+    folder = '$WRKDIR/Results/20240902/Test_ho_long/2/' # $WRKDIR/Results/ for the server
     #ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
@@ -86,7 +86,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     # Give specific indices if you want to run only some of them (e.g., the
     # run was interrupted before).
     #indices_of_repeats = range(bo_params['n_repetitions'])
-    indices_of_repeats = np.arange(0, 5, 1)
+    indices_of_repeats = np.arange(10, 15, 1)
     
     data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date = set_repeat_settings(
         m, c_g, c_exclz, c_eig, jitters)

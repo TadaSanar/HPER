@@ -141,46 +141,61 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
             minvalue = 0
             step = (maxvalue - minvalue) / nlevels
         
-        #print('norm', norm.vmin, norm.vmax, 'extrema', minvalue, maxvalue,
-        #      'step', step)
-        
         surf_levels = np.arange(minvalue, maxvalue + step, step)
-        #tick_vals = np.arange(norm.vmin, norm.vmax + step, (norm.vmin-norm.vmax)/5)
+        
         # Every 5th surf level will have a tick mark so they need to be fixed
-        # to a two digit value.
+        # to a two digit value while ensuring the contour levels increase.
+        
         tick_idx = np.arange(1,nlevels+1,5)
+        
         if (norm.vmax > 0):
             
-            if np.log10(step) > -2:
+            if (np.log10(step) > -2):
                 n_sign_digits = 2 # Works for almost all the values because there is exp scale in the colorbar.
             elif step != 0: # Very small values, need more accuracy in surf level stepping.
                 n_sign_digits = np.abs(np.floor(np.log10(step)))
             else:
                 n_sign_digits = 2
-            surf_levels[tick_idx] = np.round(surf_levels[tick_idx], 
-                                                  -int(np.floor(np.log10(norm.vmax))-n_sign_digits))
-            surf_levels[tick_idx[-1]] = np.round(surf_levels[tick_idx[-1]], 
-                                                  -int(np.ceil(np.log10(norm.vmax))-n_sign_digits-1))
-            #tick_vals = surf_levels[tick_idx].copy()
-            #tick_vals = np.round(tick_vals, -int(np.floor(np.log10(norm.vmax))-n_sign_digits))
-            #tick_vals[-1] = norm.vmin
-            #tick_vals[0] = norm.vmax
-            #tick_vals[-1] = np.round(tick_vals[-1], -int(np.ceil(np.log10(norm.vmax))-n_sign_digits-1))
-            #tick_vals[0] = np.round(tick_vals[0], -int(np.floor(np.log10(-1.5))-n_sign_digits-1))
             
+            if (np.floor(np.log10(norm.vmax)) - np.floor(np.log10(norm.vmin)) 
+                != 0):
+                
+                # Standard case, "the range of values is large"
+                decimals_to_round = -int(np.floor(np.log10(norm.vmax)) - 
+                                         n_sign_digits)
+                
+            else:
+                
+                # "The range of values is small"
+                decimals_to_round = -int(np.floor(np.log10(norm.vmax)) -
+                                         n_sign_digits - 1)
+                
+            surf_levels[tick_idx[0:-1]] = np.round(surf_levels[tick_idx[0:-1]], 
+                                                  decimals = decimals_to_round)
+            
+            # Make sure the last tick index is close to the true upper end of 
+            # the range (the above rounding might go too far above the upper 
+            # end of the range).
+            decimals_to_round = -int(np.ceil(np.log10(norm.vmax)) - 
+                                     n_sign_digits - 1)
+            surf_levels[tick_idx[-1]] = np.round(surf_levels[tick_idx[-1]], 
+                                                  decimals = decimals_to_round)
             
         elif norm.vmax != 0:
             
             surf_levels[tick_idx[0:-1]] = np.round(surf_levels[tick_idx[0:-1]], 1)
-        
-        #print('surflevels', surf_levels)    
+            
+        if any(surf_levels[1::]-surf_levels[0:-1] <= 0):
+            
+            print('Problem with plotting surface levels: ', surf_levels, '\n')
+            surf_levels = np.arange(minvalue, maxvalue + step, step)
+            #raise Exception('Problem with plotting surface levels. Set them manually.')
     
     else:
         
         # Surf levels have been given, just specify the tick idx.
         tick_idx = np.arange(len(surf_levels))
         
-    
     # plot the contour
     im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels, norm = norm)
     
@@ -491,16 +506,18 @@ def save_round_to_csv_files(mean, std, acq, rounds, materials, points,
 def define_norm_for_surf_plot(target, color_lims = None):
     
     if color_lims is not None:
+        
         lims = color_lims
+        
     else:
         lims = [np.min(target), np.max(target)]
         
-    if (lims[0] == 0) and (lims[1] == 0): # There's only one datapoint that is zero.
+    if (lims[0] == 0) and (lims[1] == 0): # There's only zero data.
             
         lims[0] = -0.5
         lims[1] = 0.5
         
-    if lims[0] == lims[1]: # There's only one datapoint that is nonzero.
+    if lims[0] == lims[1]: # There's only constant data (that is nonzero).
             
         lims[0] = lims[0] - np.abs(lims[0]/2)
         lims[1] = lims[1] + np.abs(lims[1]/2)
@@ -582,9 +599,9 @@ def init_acq_plot(points, acq, cmap_base):
     plot_params = {
         'surf_axis_scale': 1.0,
         'cmap_name': cmap_name,
-        'surf_levels': (0,0.009,0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1),
+        'surf_levels': [0,0.009,0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1],
         'cbar_spacing': 'proportional',
-        'cbar_ticks': (0,0.2,0.4,0.6,0.8,1)
+        'cbar_ticks': [0,0.2,0.4,0.6,0.8,1]
         }
     
     return points_to_plot, acq_to_plot, plot_params
@@ -653,7 +670,9 @@ def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = '
     # Let's not use the convenience function 'plot_surf_with_lims_and_name'
     # because we change so many parts. Repeat its functionality, instead.
     
-    norm = define_norm_for_surf_plot(mean, color_lims = color_lims)
+    # Norm calculation needs to take account the mean data and sampled data.
+    norm = define_norm_for_surf_plot(np.append(mean, data_y), 
+                                     color_lims = color_lims)
     
     triangleplot(points, mean, norm, 
                  cmap = cmap,
@@ -704,11 +723,21 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
     
     # Min and max values for each contour plot are determined and normalization
     # of the color range is calculated.
+    
     axis_scale = 60 # Units from px*min to px*hour.
-    lims_p = [np.min(posterior_mean)/axis_scale, np.max(posterior_mean)/axis_scale]
-    lims_s = [np.min(posterior_std)/axis_scale, np.max(posterior_std)/axis_scale]
-    lims_a = [0,1]#[np.min(acq_normalized) - np.abs(np.min(acq_normalized))/100, 
-             # np.max(acq_normalized) + np.abs(np.max(acq_normalized))/100]#[0,1]#
+    
+    # Posterior limits need to take account both mean data and the real samples.
+    mins = [Y_accum[i].min() for i in list(range(len(Y_accum)))]
+    maxs = [Y_accum[i].max() for i in list(range(len(Y_accum)))]
+    lims_samples = [np.min(mins)/axis_scale, np.max(maxs)/axis_scale]
+    lims_posterior = [np.min(posterior_mean)/axis_scale, np.max(posterior_mean)/axis_scale]
+    
+    
+    lims_p = [np.min([lims_samples[0], lims_posterior[0]]), 
+              np.max([lims_samples[1], lims_posterior[1]])]
+    lims_s = [np.min(posterior_std)/axis_scale, 
+              np.max(posterior_std)/axis_scale]
+    lims_a = [0,1]
     
     for i in rounds_to_plot:
         
@@ -758,103 +787,3 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
             
     plt.close('all')
     
-    '''
-    if minimize is True:
-        
-        model_optimum = np.min(np.array(posterior_mean), axis = 1)
-        idx = np.argmin(np.array(posterior_mean), axis = 1)
-    else:
-        
-        model_optimum = np.max(np.array(posterior_mean), axis = 1)
-        idx = np.argmax(np.array(posterior_mean), axis = 1)
-    
-    model_optimum_x = points[idx, :]
-    model_optimum_x = np.reshape(model_optimum_x, (model_optimum_x.shape[0], 
-                                                   model_optimum_x.shape[2]))
-        
-    # Ground truth values from the C2a paper final model (as a reference for 
-    # the next figures).
-    ref_x = np.array([[0.165, 0.04, 0.79]])
-    ref_y = 126444
-    ref_y_std = 106462
-    
-    plt.figure()
-    plt.plot(range(rounds), model_optimum)
-    plt.plot((0, rounds), [ref_y, ref_y], 'k--', linewidth = 0.5)
-    plt.xlabel('Round')
-    plt.ylabel('Target value')
-    plt.title('Model optimum')
-    plt.show()
-    
-    plt.figure()
-    plt.plot(range(rounds), model_optimum_x)
-    plt.plot((0, rounds), np.repeat(ref_x, repeats = 2, axis = 0), 'k--', linewidth = 0.5)
-    plt.xlabel('Round')
-    plt.ylabel('$x_i$')
-    plt.title('Model optimum')
-    plt.legend(['$x_0$', '$x_1$', '$x_2$'])
-    plt.show()
-    '''
-    
-    '''
-    norm = matplotlib.colors.Normalize(vmin=lims[2][0], vmax=lims[2][1])
-    # Shift the colormap (removes the red background that appears with the std colormap)
-    orig_cmap = mpl.cm.RdBu
-    shifted_cmap = shiftedColorMap(orig_cmap, start=0, midpoint=0.000005, stop=1, name='shifted')
-    # Colors of the samples in each round.     
-    newPal = {}#0:'k', 1:'k', 2:'k', 3:'k', 4: 'k'}#{0:'#8b0000', 1:'#7fcdbb', 2:'#9acd32', 3:'#ff4500', 4: 'k'} #A14
-    for i in rounds_to_plot:
-        newPal[i] = 'k'
-        print('Plotting round ', i) #A14
-        if i==0:
-            # In the first round there is an even distribution.
-            test_data = np.concatenate((points, acq_normalized[i]), axis=1)
-            test_data = test_data[test_data[:,3] != 0]
-            test_data[:,3] = np.ones(test_data[:,3].shape)*0.3
-        else:
-            test_data = np.concatenate((points, acq_normalized[i-1]), axis=1)
-            test_data = test_data[test_data[:,3] != 0]
-        triangleplot(test_data[:,0:3], test_data[:,3], norm,
-                     surf_axis_scale = 1.0, cmap = 'shifted',
-                     cbar_label = r'$EIC(\theta, \beta_{DFT})$ in round ' + str(i), #A14
-                     saveas = results_dir + 'EIC-with-single-round-samples-round'+str(i) + 
-                     '-' + time_now, #A14
-                     surf_levels = (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8,1),
-                     scatter_points=X_rounds[i], scatter_color = newPal[i],
-                     cbar_spacing = 'proportional',
-                     cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
-        
-        # Plot acquisition function without samples only if file number does not have to be limited.
-    if (limit_file_number == False):        
-        for i in rounds_to_plot:
-            #print('Round: ', i) #A14
-            if i==0:
-                # In the first round there is a even distribution.
-                test_data = np.concatenate((points, acq_normalized[i]), axis=1)
-                test_data = test_data[test_data[:,3] != 0]
-                test_data[:,3] = np.ones(test_data[:,3].shape)*0.3
-            else:
-                test_data = np.concatenate((points, acq_normalized[i-1]), axis=1)
-                test_data = test_data[test_data[:,3] != 0]
-            triangleplot(test_data[:,0:3], test_data[:,3], norm,
-                         surf_axis_scale = 1.0, cmap = 'shifted',
-                         cbar_label = r'$EIC(\theta, \beta_{DFT})$', #A14
-                         saveas = results_dir + 'EIC-round'+str(i) + 
-                         '-' + time_now, #A14
-                         surf_levels = (0,0.009,0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8,1),
-                         cbar_spacing = 'proportional',
-                         cbar_ticks = (0,0.2,0.4,0.6,0.8,1))
-    
-    #A14
-    norm = matplotlib.colors.Normalize(vmin=lims[0][0], vmax=lims[0][1])
-    sample_points = np.empty((0,3))
-    for i in rounds_to_plot:
-        triangleplot(points, posterior_mean[i]/axis_scale, norm,
-                     cmap = 'RdBu_r',
-                     cbar_label = r'$I_{c}(\theta)$ (px$\cdot$h) in round ' + str(i), #A14
-                     saveas = results_dir + 'Modelled-Ic-with-samples-round'+str(i) + 
-                     '-' + time_now, #A14
-                     scatter_points=X_step[i],
-                     scatter_color = np.ravel(Y_step[i]/axis_scale),
-                     cbar_spacing = None, cbar_ticks = None)
-        '''

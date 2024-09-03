@@ -62,18 +62,18 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
     jitters = [0.01, 0.1, 0.5]
 
-    folder = '$WRKDIR/Results/20240902/Test_ho_long/0/' # $WRKDIR/Results/ for the server
+    folder = '$WRKDIR/Results/20240903/Test_ho_long/0/' # $WRKDIR/Results/ for the server
     #ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
-                 'n_rounds': 50, # Number of rounds in one BO.
+                 'n_rounds': 25, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
-                 'batch_size': 2, # Number of samples in each round.
+                 'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
-                 'noise_target': 1  # Noise level of the target variable (between [0,1])
+                 'noise_target': 0  # Noise level of the target variable (between [0,1])
                  }
     
-    noise_df = 1 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
+    noise_df = 0 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
 
     # Give False if you don't want to save the figures.
     save_figs = False
@@ -85,8 +85,8 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     # Give range(bo_params['n_repetitions']) if you want to run all the repeats.
     # Give specific indices if you want to run only some of them (e.g., the
     # run was interrupted before).
-    #indices_of_repeats = range(bo_params['n_repetitions'])
-    indices_of_repeats = np.arange(0, 5, 1)
+    # indices_of_repeats = range(bo_params['n_repetitions'])
+    indices_of_repeats = np.arange(0, 10, 1)
     
     data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date = set_repeat_settings(
         m, c_g, c_exclz, c_eig, jitters)
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     path_gtmodel_humanevals = './Source_data/visualquality/human_model_scale0to1'  # GPy.models.gp_regression.GPRegression
     
     # Number of methods to be tested.
-    m_total = 120
+    m_total = 96
     # Indices of methods to be tested. Default: range(m_total)
     indices_methods = range(m_total)
     

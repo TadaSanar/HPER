@@ -21,7 +21,7 @@ import pandas as pd
 # Set figure style.
 #mystyle = FigureDefaults('nature_comp_mat_sc')
 
-sn.set_context('paper')
+sn.set_context('paper')#('notebook')
 
 cmap = mpl.cm.viridis
 cmap.set_under(color='r')
@@ -426,7 +426,7 @@ def calc_regret(ground_truth, X_opt, X_final, ground_truth_region_radius=0.1,
     # Number of samples in the opt samples dataset within an acceptable
     # distance from the ground truth region.
     n_opt_samples = np.sum(regret[:, 0:n_rounds_considered]
-                           < ground_truth_region_radius, axis=1)
+                           < ground_truth_region_radius, axis = 0)
 
     return regret, n_opt_samples, n_all_samples
 
@@ -523,10 +523,11 @@ def create_plot(df_data_long, name_in_legend, color, legend_list,
         fig, ax = plt.subplots()
     else:
         fig, ax = fig_handle
-
+    
     # Mean values
     sn.lineplot(data=df_data_long, x='Round', y=df_data_long.columns[0],
                 ci=90, color=color, ax=ax)
+    
     legend_list.append(name_in_legend)
 
     if (ylim is not None) and (ylog is False):
@@ -628,7 +629,8 @@ def regret_plot(m, gt_regret, regret_longs, fr, fig_names_all, to_same_plot, sav
 
     current_fig, legend_list = plot_check_ref_save(m, datatype_idx, regret_longs,
                                                    gt_regret, fr,
-                                                   name_legend_all, colors_all, legend_list, ylim, False,
+                                                   name_legend_all, colors_all, 
+                                                   legend_list, ylim, False,
                                                    to_same_plot, save_figs, fig_names_all, xlim=regret_interm_idx)
 
     return current_fig, legend_list
@@ -711,7 +713,7 @@ def read_key_ho_results(res_all, n_df_wides, regret_rA_wides, regret_rB_wides,
     n_humans = np.zeros((bo_params['n_rounds'], m_max))
     regrets_rA = np.full((bo_params['n_rounds'], m_max), 10.0**5)
     regrets_rB = np.full((bo_params['n_rounds'], m_max), 10.0**5)
-
+    std_regrets_rA = np.full((bo_params['n_rounds'], m_max), 10.0**5)
     for m in range(m_max):
 
         if n_df_wides[m] is not None:
@@ -721,16 +723,19 @@ def read_key_ho_results(res_all, n_df_wides, regret_rA_wides, regret_rB_wides,
 
         regrets_rA[:, m] = regret_rA_wides[m].mean().iloc[0:-1].values
         regrets_rB[:, m] = regret_rB_wides[m].mean().iloc[0:-1].values
+        std_regrets_rA[:, m] = regret_rA_wides[m].std().iloc[0:-1].values
 
     n_humans = n_humans[regret_interm_idx, :]
     regrets_rA = regrets_rA[regret_interm_idx, :]
     regrets_rB = regrets_rB[regret_interm_idx, :]
-
+    std_regrets_rA = std_regrets_rA[regret_interm_idx, :]
+    
     n_humans = np.reshape(n_humans, (n_jitters, n_methods))
     regrets_rA = np.reshape(regrets_rA, (n_jitters, n_methods))
     regrets_rB = np.reshape(regrets_rB, (n_jitters, n_methods))
-
-    return n_humans, regrets_rA, regrets_rB
+    std_regrets_rA = np.reshape(regrets_rA, (n_jitters, n_methods))
+    
+    return n_humans, regrets_rA, regrets_rB, std_regrets_rA
 
 
 def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
@@ -743,8 +748,9 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
 
     n_jitters = jitters.shape[0]
     n_methods = jitters.shape[1]
-    n_humans, regrets_rA, regrets_rB = read_key_ho_results(res_all, n_df_wides, regret_rA_wides, regret_rB_wides,
-                                                           n_jitters, n_methods, regret_interm_idx)
+    n_humans, regrets_rA, regrets_rB, std_regrets_rA = read_key_ho_results(
+        res_all, n_df_wides, regret_rA_wides, regret_rB_wides, n_jitters, 
+        n_methods, regret_interm_idx)
     
     print(n_humans)
     
@@ -764,12 +770,20 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
 
     if share_range is True:
         
-        cbar_ticks = [np.linspace(0.01, n_human_max, 5),
-                      np.linspace(#np.min(regrets_rA) + 
-                                  0.01, np.sqrt(2), 5)]
+        #cbar_ticks = [np.linspace(0.01, n_human_max, 5),
+        #              np.linspace(#np.min(regrets_rA) + 
+        #                          0.01, np.sqrt(2)/2, 5)]
+        
+        vmin = [0.01, 0.01]
+        vmax = [np.nanmax(n_humans), np.max(regrets_rA)] # [n_human_max, np.sqrt(2)/2]
+        vmax = np.floor(np.array(vmax)*10)/10 + 0.1
+        
     else:
 
-        cbar_ticks = [None, None]
+        #cbar_ticks = [None, None]
+        vmin = [None, None]
+        vmax = [None, None]
+        
 
     for i in range(n_jitters):
 
@@ -785,9 +799,9 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
         #cbar_format_regret = '%.2f'
         #cbar_format_human = '%.2f'
 
-        for j in range(len(y_data)):
+        for k in range(len(z_data)):
 
-            for k in range(len(z_data)):
+            for j in range(len(y_data)):
 
                 title = z_label[k] + ' (' + y_label[j] + \
                     ' method, jitter ' + str(jitters[i, 0]) + ')'
@@ -797,12 +811,15 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
 
                 plt.figure()
                 plt.scatter(x_data, y_data[j], c=z_data[k],
-                            vmin = cbar_ticks[k][0], vmax = cbar_ticks[k][-1])
+                            vmin = vmin[k], #cbar_ticks[k][0], 
+                            vmax = vmax[k], #cbar_ticks[k][-1],
+                            s = 150)
                 plt.title(title)
                 plt.xlabel(x_label)
                 plt.ylabel(y_label[j])
-                plt.colorbar(ticks=cbar_ticks[k], extend='min',
-                             label=z_label[k])  # , format = cbar_format_human)
+                plt.colorbar(#ticks=cbar_ticks[k], 
+                             extend='min',
+                             label=z_label[k])#, format = '%.1f')
 
                 if save_figs is True:
 
@@ -811,17 +828,62 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
                     plt.gcf().savefig(filename + '.png', dpi=300)
 
                 plt.show()
-
+    
+    reg = regrets_rA.flatten()
+    reg_min_idcs = []
+    reg_temp = reg.copy()
+    for i in range(10):
+        
+        reg_min_idcs.append(np.argmin(reg_temp))
+        reg_temp[reg_min_idcs] = reg_temp[reg_min_idcs] + 10
+                
+    plt.figure()
+    plt.title('Regrets HO')
+    plt.bar(x = range(reg.shape[0]), height = reg, 
+            yerr = std_regrets_rA.flatten())
+    for i in range(10):
+        idx = reg_min_idcs[i]
+        s = ('Opt' + str(i) + ': m' + str(idx))
+        plt.text(idx, 0.01, s, rotation = 'vertical')
+        s = ('j' + str(jitters.flatten()[idx]) + 
+             '_ceig' + str(c_eigs.flatten()[idx]) + 
+             '_cexclz' + str(c_exclzs.flatten()[idx]) + 
+             '_cg' + str(c_grads.flatten()[idx]) +
+             '_nH' + str(n_humans.flatten()[idx])[0:4])
+        plt.text(idx, 0.2, s, rotation = 'vertical')
+    if save_figs is True:
+        filename = folder + 'HO_regrets_rA'
+        plt.gcf().savefig(filename + '.pdf', transparent=True)
+        plt.gcf().savefig(filename + '.svg', transparent=True)
+        plt.gcf().savefig(filename + '.png', dpi=300)
+    plt.show()
+    
+    plt.figure()
+    plt.title('Nhuman HO')
+    plt.bar(x = range(reg.shape[0]), height = n_humans.flatten())
+    for i in range(10):
+        idx = reg_min_idcs[i]
+        s = ('Opt' + str(i) + ': m' + str(idx))
+        plt.text(idx, 0.1, s, rotation = 'vertical')
+    if save_figs is True:
+        filename = folder + 'HO_Nh_rA'
+        plt.gcf().savefig(filename + '.pdf', transparent=True)
+        plt.gcf().savefig(filename + '.svg', transparent=True)
+        plt.gcf().savefig(filename + '.png', dpi=300)
+    plt.show()
+    
 
 def calc_samples_within_ra_rb(res_all):
 
-    n_repeats = res_all[0]['regret_rA_n_opt'].shape[0]
+    n_rounds = res_all[0]['X_opt'].shape[1]
+    n_repeats = res_all[0]['X_opt'].shape[0]
     n_methods = len(res_all)
-
+    
+    
     n_samples_rB = np.zeros((n_methods, n_repeats))
     n_samples_rA = np.zeros((n_methods, n_repeats))
-    n_samples_rB_of_opt = np.zeros((n_methods, n_repeats))
-    n_samples_rA_of_opt = np.zeros((n_methods, n_repeats))
+    n_samples_rB_of_opt = np.zeros((n_methods, n_rounds))
+    n_samples_rA_of_opt = np.zeros((n_methods, n_rounds))
 
     for m in range(n_methods):
 
@@ -882,9 +944,10 @@ def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n
                                  np.std(n_samples_rB, axis=1),
                                  name_legend_all,
                                  colors_all,
-                                 fig_handle=fb,
+                                 fig_handle=None,
                                  ylabel=r'$N_{low}$ $_{quality}$ / $N_{all}$',
-                                 figname=folder + 'Prop_low_quality_all_samples')
+                                 figname=folder + 'Prop_low_quality_all_samples',
+                                 ylim = None)
     plt.show()
 
     plt.figure()
@@ -898,8 +961,8 @@ def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n
     plt.show()
 
     plt.figure()
-    current_fig = create_barplot(np.mean(n_samples_rB_of_opt, axis=1),
-                                 np.std(n_samples_rB_of_opt, axis=1),
+    current_fig = create_barplot(n_samples_rB_of_opt[:,-1],
+                                 [0,0,0,0],
                                  name_legend_all,
                                  colors_all,
                                  fig_handle=None,
@@ -908,8 +971,8 @@ def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n
     plt.show()
 
     plt.figure()
-    current_fig = create_barplot(np.mean(n_samples_rA_of_opt, axis=1),
-                                 np.std(n_samples_rA_of_opt, axis=1),
+    current_fig = create_barplot(n_samples_rA_of_opt[:,-1],
+                                 [0,0,0,0],
                                  name_legend_all,
                                  colors_all,
                                  fig_handle=None,
@@ -923,37 +986,37 @@ def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n
 
 # Folder of experiments to plot.
 # 20240423/Noiseless-BbetterthanA-noiseeste-12-add-constr-ard-norm-Mat52kernel/'#'20231129-noisytarget-noisyhuman-ho-j001/'#'./Results/triton/20230823-noisytarget-noisyhuman-ho/'
-folder = './Results/20240831/Test_ho_quick/A/'
+folder = './Results/20240904/Test_kernel/RBF/'
 
 # Experiments with the listed hyperparam range will be plotted.
 
 # [0, 0.2, 0.5, 0.8, 1]#[0, 0.5, 0.75, 0.9, 1, 2]  # Expected information gain.
-c_eig = [0.05, 0.1] # 0.025
+c_eig = [0.1]
 # Size of the exclusion zone in percentage points (max. 100)
-c_exclz = [5,10] # [0,1,5,10,20]#[1, 5, 10, 20]
+c_exclz = [15] # [0,1,5,10,20]#[1, 5, 10, 20]
 # Gradient limit. When the number is higher, the criterion picks less points.
 # 0.2, 0.5, 0.8, 1])))#list(cg(np.array([0.2, 0.5, 0.6, 0.8, 1])))
-c_g = list(cg(np.array([0.8])))
+c_g = list(cg(np.array([0.9])))
 
-jitters = [0.1, 0.5]
+jitters = [0.01]
 
 bo_params = {'n_repetitions': 10,
-             'n_rounds': 50,
+             'n_rounds': 20,
              'n_init': 3,
-             'batch_size': 2,
+             'batch_size': 1,
              'materials': ['CsPbI', 'MAPbI', 'FAPbI'],
              # 1 means 100% of noise according to the std of the predictions of the ground truth model.
-             'noise_target': 1
+             'noise_target': 0
              }
 
 # 1 means 100% of noise accoring to the std of the predictions of the ground truth model.
-noise_df = 1
+noise_df = 0
 
 ###############################################################################
 
 # SETTINGS - PLOTS
 
-bo_ground_truth_model_path = './Source_data/gt_model_traget_variable'#'./Source_data/stability_gt_model_GPR'
+bo_ground_truth_model_path = './Source_data/gt_model_target_variable_equal_AB'#'./Source_data/stability_gt_model_GPR'
 
 # ground_truth_rA = np.array([0.17, 0.03, 0.80])  # From C2a paper
 # From the ground truth model
@@ -966,7 +1029,7 @@ gt_rB_ref_level = 0.913  # Regret of region B should reach this value when the
 # run has converged into region A (not B!).
 
 # Give False if you don't want to save the figures.
-save_figs = True
+save_figs = False
 # Plot everything to the same plot? Boolean.
 to_same_plot = True
 # Set legends off if you have many experiment conditions and want to see the
@@ -976,11 +1039,11 @@ legends_visible = False
 # When plotting HO results, it may be beneficial to plot+print intermediate
 # regret values if the searches have all converged. Insert the round you want
 # to plot in this case.
-regret_interm_idx = 49
+regret_interm_idx = 7
 
 # Plot w.r.t. to optimum defined as the surrogate model optimum ('model_opt') 
 # or as the sample optimum ('opt').
-opt_key = 1
+opt_key = 0
 opt_types = {0: 'model_opt', 1: 'opt'}
 
 ###############################################################################
@@ -1089,11 +1152,11 @@ for m in range(iterations):
     # optimum rB.
     res['regret_rA'], res['regret_rA_n_opt'], res['regret_rA_n_all'] = calc_regret(
         ground_truth_rA, res['X_' + opt_types[opt_key]], res['X_final'], 
-        gt_rA_ref_level, regret_interm_idx)
+        gt_rA_ref_level)#, regret_interm_idx)
 
     res['regret_rB'], res['regret_rB_n_opt'], res['regret_rB_n_all'] = calc_regret(
         ground_truth_rB, res['X_' + opt_types[opt_key]], res['X_final'], 
-        gt_rA_ref_level, regret_interm_idx)
+        gt_rA_ref_level)#, regret_interm_idx)
 
     res_all.append(res)
     fig_names_all.append(fig_names)
@@ -1115,7 +1178,7 @@ else:
  regret_rB_longs, n_df_wides, n_df_longs] = create_key_result_dataframes(
     dateslist_selected, res_all, n_rounds, n_repetitions, opt_types, opt_key)
 
-###############################################################################
+#############################################[]##################################
 # PLOT CONVERGENCE
         
 for m in range(iterations):
@@ -1211,6 +1274,6 @@ n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n_samples_rB_of_opt = calc_samp
 n_samples = bo_params['n_init'] + \
     (bo_params['n_rounds']-1)*bo_params['batch_size']
 plot_samples_within_ra_rb(n_samples_rA/n_samples, n_samples_rB/n_samples,
-                          n_samples_rA_of_opt/n_samples,
-                          n_samples_rB_of_opt/n_samples, name_legend_all,
+                          n_samples_rA_of_opt/n_rounds,
+                          n_samples_rB_of_opt/n_rounds, name_legend_all,
                           colors_all, fb, folder, legends_visible)

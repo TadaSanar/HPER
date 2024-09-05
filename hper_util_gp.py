@@ -41,6 +41,9 @@ def predict_points(gpmodel, x_points, Y_data=None):
         posterior_mean = posterior_mean_true_units
         posterior_var = posterior_std_true_units**2
     
+    #print('\nPredict points noiseless: ', posterior_mean, 
+    #      np.sqrt(posterior_var), '\n')
+    
     return posterior_mean, posterior_var
 
 
@@ -73,8 +76,8 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
         #np.random.normal(
         #posterior_mean, np.sqrt(gaussian_noise_variance)*noise_level)#np.sqrt(posterior_var)*noise_level)
     
-    print('\nPredict points noisy: ', posterior_mean_noisy, posterior_mean, 
-          np.sqrt(gaussian_noise_variance[0]), noise_level, '\n')
+    #print('\nPredict points noisy: ', posterior_mean_noisy, posterior_mean, 
+    #      np.sqrt(gaussian_noise_variance[0]), noise_level, '\n')
     #logging.log(21, 'Noise level: ' + str(noise_level))
     #logging.log(21, 'Posterior mean: ' + str(posterior_mean))
     #logging.log(21, 'Posterior mean noisy: ' + str(posterior_mean_noisy))

@@ -54,19 +54,19 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000, '\n')
 
     
-    c_eig = [0.1, 0.25, 0.75]#[0.05, 0.1, 0.25]#, 1]#[0.75]  # Expected information gain.
+    c_eig = [0.01, 0.1, 0.25, 0.75, 1] # Expected information gain. When the number is higher, picks less points.
     # Size of the exclusion zone in percentage points (max. 100)
-    c_exclz = [5, 10, 15]#[5, 10, 15]#, 20]#[20]
+    c_exclz = [1, 5, 10, 15, 30]
     # Gradient limit. When the number is higher, the criterion picks less points. 0.05#, 0.07, 0.1, 0.2, 0.5, 0.75
-    c_g = list(cg(np.array([0.2, 0.5, 0.6, 0.8, 0.9])))#list(cg(np.array([0.95, 0.9, 0.8])))#list(cg(np.array([0.6])))
+    c_g = list(cg(np.array([0.01, 0.2, 0.5, 0.6, 0.8, 0.9, 0.99])))
 
     jitters = [0.01, 0.1, 0.5]
 
-    folder = '$WRKDIR/Results/20240903/Test_ho_long/0/' # $WRKDIR/Results/ for the server
+    folder = '$WRKDIR/Results/20240904/Test_HO_origmodel/Noiseless/0/' # $WRKDIR/Results/ for the server
     #ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 25, # Repetitions of the whole BO process.
-                 'n_rounds': 25, # Number of rounds in one BO.
+    bo_params = {'n_repetitions': 24, # Repetitions of the whole BO process.
+                 'n_rounds': 2, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
@@ -86,7 +86,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     # Give specific indices if you want to run only some of them (e.g., the
     # run was interrupted before).
     # indices_of_repeats = range(bo_params['n_repetitions'])
-    indices_of_repeats = np.arange(0, 10, 1)
+    indices_of_repeats = np.arange(0, 4, 1)
     
     data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date = set_repeat_settings(
         m, c_g, c_exclz, c_eig, jitters)
@@ -218,7 +218,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
             if (i == (bo_params['n_repetitions']-1)) or (
                     (bo_params['n_repetitions'] > 10) and
                     (np.remainder((i+1),
-                                  int(np.floor(bo_params['n_repetitions']/10)))
+                                  int(np.floor(bo_params['n_repetitions']/24)))
                      == 0)):
 
                 pickle_variables = ({'optimal_samples': optima,
@@ -259,12 +259,11 @@ if __name__ == "__main__":
     # MAIN SETTINGS FOR HITL BENCHMARKS
     
     # Paths to the GPy GPRegression models that will be used for fetching source data.
-    path_gtmodel_targetprop = './Source_data/gt_model_traget_variable'#'./Source_data/stability_gt_model_GPR' # GPy.models.gp_regression.GPRegression
-    #path_gtmodel_targetprop = './Source_data/stability_model_equal_AB'
+    path_gtmodel_targetprop = './Source_data/gt_model_target_variable'
     path_gtmodel_humanevals = './Source_data/visualquality/human_model_scale0to1'  # GPy.models.gp_regression.GPRegression
     
     # Number of methods to be tested.
-    m_total = 96
+    m_total = 222
     # Indices of methods to be tested. Default: range(m_total)
     indices_methods = range(m_total)
     

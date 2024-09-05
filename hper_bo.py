@@ -63,7 +63,7 @@ def bo_sim_target(targetprop_data_source,
     # HARD-CODED SETTINGS (CONSIDER TURNING INTO FUNCTION PARAMS)
     
     # The sum of the amount of each material will be
-    composition_total = [0.995, 1]
+    composition_total = [0.99, 1] #Ennen [0.995,1]
     # limited between these values. If you need everything to sum up to 100% within
     # 1%-units accuracy, choose [0.995, 1] (default value). If the code runs too
     # long with this value, choose [0.99,1] or even wider range.

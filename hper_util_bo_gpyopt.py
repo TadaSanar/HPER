@@ -7,6 +7,7 @@ Created on Thu Aug 29 13:05:09 2024
 """
 
 import GPyOpt
+from GPy.kern import RBF
 import numpy as np
 
 from hper_util_gp import extract_gpmodel_params
@@ -76,7 +77,7 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
                                                     #max_iters = 2000,#1000,
                                                     exact_feval = exact_feval,
                                                     ARD=False,
-                                                    kernel = None#, #GPy.kern.RBF#input_dim=3, ARD = True)#, 
+                                                    kernel = RBF#input_dim=3, ARD = True)#, 
                                                     # variance = 54468035, 
                                                     # lengthscale = 0.08)
                                                     #num_cores = 1

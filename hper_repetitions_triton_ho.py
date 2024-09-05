@@ -62,11 +62,11 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
     jitters = [0.01]
 
-    folder = '$WRKDIR/Results/20240904/Test_HO_origmodel/Noiseless/0/' # $WRKDIR/Results/ for the server
+    folder = './Results/20240904/HO_origmodel/Noiseless/0/' # $WRKDIR/Results/ for the server
     #ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 24, # Repetitions of the whole BO process.
-                 'n_rounds': 2, # Number of rounds in one BO.
+                 'n_rounds': 18, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names

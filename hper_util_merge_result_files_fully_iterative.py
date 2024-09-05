@@ -26,12 +26,12 @@ def save_pickle(filename, data):
         dbfile.close()
     
 
-folder_target = './$WRKDIR/Results/20240902/Test_ho_long/4/'
-folder_source = './$WRKDIR/Results/20240902/Test_ho_long/Merged3/'
-res_all_folder = './$WRKDIR/Results/20240902/Test_ho_long/Merged4/'
-n_repetitions_target = 25
-n_repetitions_source = 18
-diff = -2
+folder_target = './Results/20240903/Noiseless_fasts/A/1/'
+folder_source = './Results/20240903/Noiseless_fasts/A/0/'
+res_all_folder = './Results/20240903/Noiseless_fasts/Merged/'
+n_repetitions_target = 20
+n_repetitions_source = 10
+diff = 0
 
 ###############################################################################
 

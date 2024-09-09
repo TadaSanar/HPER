@@ -62,7 +62,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
     jitters = [0.1, 0.5, 0.01]
 
-    folder = './Results/20240904/HO_origmodel/Noisy/3/' # $WRKDIR/Results/ for the server
+    folder = './Results/20240909/HO_origmodel/Noisy/3/' # $WRKDIR/Results/ for the server
     #ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
     bo_params = {'n_repetitions': 24, # Repetitions of the whole BO process.
@@ -70,10 +70,10 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
                  'materials': ['CsPbI', 'MAPbI', 'FAPbI'], # Materials, i.e., search space variable names
-                 'noise_target': 0  # Noise level of the target variable (between [0,1])
+                 'noise_target': 1  # Noise level of the target variable (between [0,1])
                  }
     
-    noise_df = 0 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
+    noise_df = 1 # Noise level of the data fusion variable (between [0,1], used only if data fusion is used)
 
     # Give False if you don't want to save the figures.
     save_figs = False

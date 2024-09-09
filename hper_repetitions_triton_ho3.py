@@ -62,10 +62,10 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
 
     jitters = [0.01]
 
-    folder = './Results/20240904/HO_origmodel/Noiseless/3/' # $WRKDIR/Results/ for the server
+    folder = './Results/20240904/HO_origmodel/Noiseless/9/' # $WRKDIR/Results/ for the server
     #ground_truth = [0.165, 0.04, 0.79] #[0.17, 0.03, 0.80]  # From C2a paper
 
-    bo_params = {'n_repetitions': 24, # Repetitions of the whole BO process.
+    bo_params = {'n_repetitions': 50, # Repetitions of the whole BO process.
                  'n_rounds': 18, # Number of rounds in one BO.
                  'n_init': 3, # Number of initial sampling points.
                  'batch_size': 1, # Number of samples in each round.
@@ -86,7 +86,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     # Give specific indices if you want to run only some of them (e.g., the
     # run was interrupted before).
     # indices_of_repeats = range(bo_params['n_repetitions'])
-    indices_of_repeats = np.arange(12, 16, 1)
+    indices_of_repeats = np.arange(42, 50, 1)
     
     data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date = set_repeat_settings(
         m, c_g, c_exclz, c_eig, jitters)
@@ -218,7 +218,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
             if (i == (bo_params['n_repetitions']-1)) or (
                     (bo_params['n_repetitions'] > 10) and
                     (np.remainder((i+1),
-                                  int(np.floor(bo_params['n_repetitions']/24)))
+                                  int(np.floor(bo_params['n_repetitions']/50)))
                      == 0)):
 
                 pickle_variables = ({'optimal_samples': optima,

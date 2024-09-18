@@ -411,7 +411,7 @@ def bo_sim_target(targetprop_data_source,
                time_str=time_now, results_folder=results_folder,
                minimize = True, close_figs = close_figs)
 
-        if acquisition_function == 'EI_DF':
+        if (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF'):
 
             # Plot ternary-specific plots regarding data fusion.
             plotDF(rounds, materials, data_fusion_models,
@@ -477,7 +477,7 @@ def bo_sim_target(targetprop_data_source,
         
         BO_objects = [None] * (len(BO_objects))
         
-        if acquisition_function == 'EI_DF':
+        if (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF'):
             
             data_fusion_models = [None] * (len(data_fusion_models))
         

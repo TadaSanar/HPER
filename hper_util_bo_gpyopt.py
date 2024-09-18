@@ -60,6 +60,14 @@ def build_constraint_str(x_variables = ['CsPbI', 'MAPbI', 'FAPbI'],
 
 def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
            batch_size, exact_feval):
+    
+    if 'jitter' in acq_fun_params.keys():
+        
+        jitter = acq_fun_params['jitter']
+        
+    else:
+        
+        jitter = None
         
     BO_object = GPyOpt.methods.BayesianOptimization(f=None, # f=None because this code will be adapted in future for experimental BO cycles.
                                                     domain=bounds,
@@ -70,7 +78,7 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
                                                     Y=Y,
                                                     evaluator_type='local_penalization',
                                                     batch_size=batch_size,
-                                                    acquisition_jitter=acq_fun_params['jitter'],
+                                                    acquisition_jitter=jitter,
                                                     acq_fun_params=acq_fun_params,
                                                     #noise_var = #10e-12,#0.1*(Y_accum[k]/Y_accum[k].max()).var(),#1e-12,#BOSS default (self.noise) is 10e-12, note that Emma needs to change this to noisy case. 0.1*(Y_accum[k]/Y_accum[k].max()).var(), #10e-12,# # GPyOpt assumes normalized Y data at the point when variance is defined.
                                                     #optimize_restarts = 10,#10,#2,

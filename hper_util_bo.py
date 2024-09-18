@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from hper_util_gp import predict_points, predict_points_noisy
 
-def data_fusion_with_ei_df_param_builder(acquisition_function, 
+def data_fusion_param_builder(acquisition_function, 
                                           data_fusion_settings = None
                                           #data_fusion_target_property='dft',
                                           #data_fusion_input_variables=[
@@ -214,7 +214,17 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
     if acquisition_function == 'EI_DF':
         
         # Do data fusion. Set the parameters required for data fusion.
-        acq_fun_params = data_fusion_with_ei_df_param_builder(acquisition_function,
+        acq_fun_params = data_fusion_param_builder(acquisition_function,
+                                              data_fusion_settings = optional_data_fusion_settings
+                                              #data_fusion_target_property=data_fusion_property,
+                                              #data_fusion_input_variables=data_fusion_input_variables,
+                                              #optional_acq_params=optional_acq_params
+                                              )
+
+    elif acquisition_function == 'LCB_DF':
+        
+        # Do data fusion. Set the parameters required for data fusion.
+        acq_fun_params = data_fusion_param_builder(acquisition_function,
                                               data_fusion_settings = optional_data_fusion_settings
                                               #data_fusion_target_property=data_fusion_property,
                                               #data_fusion_input_variables=data_fusion_input_variables,
@@ -233,7 +243,7 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
     
     # Set the rest of acquisition function parameters.
     
-    if (acquisition_function == 'EI') or (acquisition_function == 'EI_DF'):
+    if (acquisition_function == 'EI') or (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF'):
     
         if optional_acq_settings is not None:
             
@@ -253,14 +263,14 @@ def acq_fun_param2descr(acq_fun, acq_fun_params=None):
 
     output_str = acq_fun
 
-    if acq_fun == 'EI_DF':
+    if (acq_fun == 'EI_DF') or (acq_fun == 'LCB_DF'):
 
-        ei_df_params = acq_fun_params
-        output_str = (output_str + '-dftarget-' + ei_df_params['df_target_prop'] +
-                      '-lengthscale-' + str(ei_df_params['df_kernel_lengthscale']) +
-                      '-variance-' + str(ei_df_params['df_kernel_variance']) +
-                      '-p_beta-' + str(ei_df_params['p_beta']) +
-                      '-p_midpoint-' + str(ei_df_params['p_midpoint']))
+        df_params = acq_fun_params
+        output_str = (output_str + '-dftarget-' + df_params['df_target_prop'] +
+                      '-lengthscale-' + str(df_params['df_kernel_lengthscale']) +
+                      '-variance-' + str(df_params['df_kernel_variance']) +
+                      '-p_beta-' + str(df_params['p_beta']) +
+                      '-p_midpoint-' + str(df_params['p_midpoint']))
         
     if acq_fun_params is not None:
         

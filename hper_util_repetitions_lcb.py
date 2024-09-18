@@ -211,7 +211,7 @@ def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
 
             data_fusion_property = None
             df_data_coll_method = None
-            acquisition_function = 'EI'
+            acquisition_function = 'LCB'
             c_grad = None
             c_e = None
             # Which data to fetch (if you only fetch and do not calculate new)?
@@ -221,7 +221,7 @@ def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
 
             data_fusion_property = 'quality'
             df_data_coll_method = 'model_all'
-            acquisition_function = 'EI_DF'
+            acquisition_function = 'LCB_DF'
             c_grad = None
             c_e = None
             # Which data to fetch (if you only fetch and do not calculate new)?
@@ -233,7 +233,7 @@ def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
             df_data_coll_method = 'model_necessary_eig'
             c_grad = hyperparams_eig[(m % n_hpars)-2][0]
             c_e = hyperparams_eig[(m % n_hpars)-2][1]
-            acquisition_function = 'EI_DF'
+            acquisition_function = 'LCB_DF'
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
             
@@ -243,7 +243,7 @@ def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
             df_data_coll_method = 'model_necessary_exclz'
             c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
             c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
-            acquisition_function = 'EI_DF'
+            acquisition_function = 'LCB_DF'
             # Which data to fetch (if you only fetch and do not calculate new)?
             fetch_file_date = None
         

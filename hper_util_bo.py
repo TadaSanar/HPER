@@ -29,7 +29,7 @@ def data_fusion_param_builder(acquisition_function,
     
     '''
 
-    if (acquisition_function != 'EI_DF'):
+    if (acquisition_function != 'EI_DF') and (acquisition_function != 'LCB_DF'):
         
         raise Exception("This function has not been designed for the " +
                         "requested acquisition function: " + 

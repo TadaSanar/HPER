@@ -7,7 +7,7 @@ Created on Thu Aug 29 13:05:09 2024
 """
 
 import GPyOpt
-from GPy.kern import RBF
+from GPy.kern import RBF, Matern52
 import numpy as np
 
 from hper_util_gp import extract_gpmodel_params
@@ -79,13 +79,14 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
                                                     evaluator_type='local_penalization',
                                                     batch_size=batch_size,
                                                     acquisition_jitter=jitter,
+                                                    exploration_weight = jitter,
                                                     acq_fun_params=acq_fun_params,
                                                     #noise_var = #10e-12,#0.1*(Y_accum[k]/Y_accum[k].max()).var(),#1e-12,#BOSS default (self.noise) is 10e-12, note that Emma needs to change this to noisy case. 0.1*(Y_accum[k]/Y_accum[k].max()).var(), #10e-12,# # GPyOpt assumes normalized Y data at the point when variance is defined.
                                                     #optimize_restarts = 10,#10,#2,
                                                     #max_iters = 2000,#1000,
                                                     exact_feval = exact_feval,
                                                     ARD=False,
-                                                    kernel = RBF#input_dim=3, ARD = True)#, 
+                                                    kernel = Matern52#RBF#input_dim=3, ARD = True)#, 
                                                     # variance = 54468035, 
                                                     # lengthscale = 0.08)
                                                     #num_cores = 1
@@ -112,6 +113,8 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
                                       'gradients': gradients,
                                       'gaussian_noise': gaussian_noise
                                           }
+    
+    print(current_surrogate_model_params)
     
     return BO_object, x_next, current_surrogate_model_params
 

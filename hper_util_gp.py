@@ -83,6 +83,16 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
     #logging.log(21, 'Posterior mean noisy: ' + str(posterior_mean_noisy))
     #logging.log(21, 'Seed: ' + str(np.random.get_state()[1][0]))
     
+    #draws = np.zeros((1000,))
+    #for i in range(1000):
+    #    draws[i] = normalvariate(posterior_mean[0], 
+    #                                 np.sqrt(gaussian_noise_variance)*noise_level)
+    #import matplotlib.pyplot as plt
+    #plt.figure()
+    #plt.hist(draws)
+    #plt.scatter(posterior_mean[0], [10], c='k')
+    #plt.show()
+    
     return posterior_mean_noisy, posterior_var, posterior_mean
 
 def GP_model(data_fusion_data, data_fusion_target_variable = 'dGmix (ev/f.u.)', 
@@ -268,9 +278,26 @@ def evaluate_GP_model_constraints(Y, noise_variance, kernel_variance,
 
 def extract_gpmodel_params(gpmodel):
     
-    lengthscale = gpmodel.kern.lengthscale.values
-    variance = gpmodel.kern.variance[0]
+    if type(gpmodel.kern) is GPy.kern.Add:
+        
+        if gpmodel.kern.parameter_names()[0].find('Mat52') > -1:
+            
+            lengthscale = gpmodel.kern.Mat52.lengthscale.values
+            variance = gpmodel.kern.Mat52.variance[0]
+        
+        elif gpmodel.kern.parameter_names()[0].find('RBF') > -1:
+            
+            lengthscale = gpmodel.kern.RBF.lengthscale.values
+            variance = gpmodel.kern.RBF.variance[0]
+        
+    else:
+        
+        lengthscale = gpmodel.kern.lengthscale.values
+        variance = gpmodel.kern.variance[0]
+        
+    
     gaussian_noise = gpmodel.Gaussian_noise.variance[0]
+    
     
     return lengthscale, variance, gaussian_noise
 

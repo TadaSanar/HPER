@@ -68,7 +68,7 @@ def read_datetimes(folder):
 
 
 def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
-                              hyperparams_exclz, jitters):
+                              hyperparams_exclz, jitters, acq):
 
     if (m % n_hpars) == 0:
 
@@ -77,7 +77,7 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
         df_data_coll_method = None
         c_grad = None
         c_e = None
-        acquisition_function = 'EI'
+        acquisition_function = acq
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = None
         color = sn.color_palette()[0]
@@ -90,7 +90,7 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
         df_data_coll_method = 'model_all'
         c_grad = None
         c_e = None
-        acquisition_function = 'EI_DF'
+        acquisition_function = acq + '_DF'
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = None
         color = sn.color_palette()[2]
@@ -103,7 +103,7 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
         df_data_coll_method = 'model_necessary_eig'
         c_grad = hyperparams_eig[(m % n_hpars)-2][0]
         c_e = hyperparams_eig[(m % n_hpars)-2][1]
-        acquisition_function = 'EI_DF'
+        acquisition_function = acq + '_DF'
         color = sn.color_palette()[1]
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = None
@@ -116,7 +116,7 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
         df_data_coll_method = 'model_necessary_exclz'
         c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
         c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
-        acquisition_function = 'EI_DF'
+        acquisition_function = acq + '_DF'
         # Which data to fetch (if you only fetch and do not calculate new)?
         fetch_file_date = None
         color = sn.color_palette()[3]
@@ -128,10 +128,10 @@ def set_acqf_plotcolor_legend(m, n_hpars, n_exclz, hyperparams_eig,
 
 
 def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
-              jitters, bo_params, noise_df, folder, date_str):
+              jitters, bo_params, noise_df, folder, date_str, acq):
 
     acquisition_function, jitter, data_fusion_property, df_data_coll_method, c_grad, c_e, color, name_in_legend = set_acqf_plotcolor_legend(
-        m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz, jitters)
+        m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz, jitters, acq)
 
     fetch_file_date = date_str
     
@@ -177,13 +177,15 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
     res_orig['lengthscales'] = []
     res_orig['variances'] = []
     res_orig['max_gradients'] = []
+    res_orig['gaussian_noise_variances'] = []
     
     for i in range(len(res_orig['surrogate_model_params'])):
         
         res_orig['lengthscales'].append(res_orig['surrogate_model_params'][i]['lengthscales'])
         res_orig['variances'].append(res_orig['surrogate_model_params'][i]['variances'])
         res_orig['max_gradients'].append(res_orig['surrogate_model_params'][i]['max_gradients'])
-    
+        res_orig['gaussian_noise_variances'].append(res_orig['surrogate_model_params'][i]['gaussian_noise_variances'])
+            
     # Save key results into more convenient Numpy arrays.
 
     n_repeats = bo_params['n_repetitions']
@@ -315,6 +317,7 @@ def load_data(m, n_hpars, n_exclz, hyperparams_eig, hyperparams_exclz,
            'next_suggs_examples': suggestions_for_next_X,
            'lengthscales': res_orig['lengthscales'],
            'variances': res_orig['variances'],
+           'gaussian_noise_variances': res_orig['gaussian_noise_variances'],
            'max_gradients': res_orig['max_gradients'],
            'af': acquisition_function,
            'jitter': jitter,
@@ -760,12 +763,13 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
         # Number of human samples are determined by param n_init in the first round
         # of bo. After that, max 1 human sample is collected in each round (if no
         # batch mode).
-        n_human_max = (bo_params['n_init'] + (bo_params['n_rounds'] - 1) *
-                       bo_params['batch_size'])
+        n_human_max = (bo_params['n_init'] + (regret_interm_idx * #bo_params['n_rounds'] - 1) *
+                       bo_params['batch_size']))
 
         n_humans = n_humans / n_human_max
-        
+        n_human_min = bo_params['n_init']/n_human_max
         n_human_max = 1
+        
         
 
     if share_range is True:
@@ -774,9 +778,9 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
         #              np.linspace(#np.min(regrets_rA) + 
         #                          0.01, np.sqrt(2)/2, 5)]
         
-        vmin = [0.01, 0.01]
+        vmin = [n_human_min, 0.01]
         vmax = [np.nanmax(n_humans), np.max(regrets_rA)] # [n_human_max, np.sqrt(2)/2]
-        vmax = np.floor(np.array(vmax)*10)/10 + 0.1
+        vmax[1] = np.floor(vmax[1]*10)/10 + 0.05
         
     else:
 
@@ -798,9 +802,11 @@ def plot_ho(res_all, bo_params, n_df_wides, regret_rA_wides, regret_rB_wides,
         filename_z = ['nhumans_', 'regrets_']
         #cbar_format_regret = '%.2f'
         #cbar_format_human = '%.2f'
-
+        
+        # One figure for N humans, one for regrets
         for k in range(len(z_data)):
-
+            
+            # One figure for eigs and one for exclusion zones.
             for j in range(len(y_data)):
 
                 title = z_label[k] + ' (' + y_label[j] + \
@@ -986,28 +992,30 @@ def plot_samples_within_ra_rb(n_samples_rA, n_samples_rB, n_samples_rA_of_opt, n
 
 # Folder of experiments to plot.
 # 20240423/Noiseless-BbetterthanA-noiseeste-12-add-constr-ard-norm-Mat52kernel/'#'20231129-noisytarget-noisyhuman-ho-j001/'#'./Results/triton/20230823-noisytarget-noisyhuman-ho/'
-folder = './Results/20240904/Test_kernel/RBF/'
+folder = './Results/20240920/LCB_DF/Noise000edgesmodel/'
 
 # Experiments with the listed hyperparam range will be plotted.
 
 # [0, 0.2, 0.5, 0.8, 1]#[0, 0.5, 0.75, 0.9, 1, 2]  # Expected information gain.
 c_eig = [0.1]
 # Size of the exclusion zone in percentage points (max. 100)
-c_exclz = [15] # [0,1,5,10,20]#[1, 5, 10, 20]
+c_exclz = [1] # [0,1,5,10,20]#[1, 5, 10, 20]
 # Gradient limit. When the number is higher, the criterion picks less points.
 # 0.2, 0.5, 0.8, 1])))#list(cg(np.array([0.2, 0.5, 0.6, 0.8, 1])))
 c_g = list(cg(np.array([0.9])))
 
-jitters = [0.01]
+jitters = [2]
 
-bo_params = {'n_repetitions': 10,
-             'n_rounds': 20,
+bo_params = {'n_repetitions': 15,
+             'n_rounds': 8,
              'n_init': 3,
-             'batch_size': 1,
+             'batch_size': 3,
              'materials': ['CsPbI', 'MAPbI', 'FAPbI'],
              # 1 means 100% of noise according to the std of the predictions of the ground truth model.
              'noise_target': 0
              }
+
+acq = 'LCB'
 
 # 1 means 100% of noise accoring to the std of the predictions of the ground truth model.
 noise_df = 0
@@ -1016,7 +1024,7 @@ noise_df = 0
 
 # SETTINGS - PLOTS
 
-bo_ground_truth_model_path = './Source_data/gt_model_target_variable_equal_AB'#'./Source_data/stability_gt_model_GPR'
+bo_ground_truth_model_path = './Source_data/gt_model_target_variable'
 
 # ground_truth_rA = np.array([0.17, 0.03, 0.80])  # From C2a paper
 # From the ground truth model
@@ -1043,7 +1051,7 @@ regret_interm_idx = 7
 
 # Plot w.r.t. to optimum defined as the surrogate model optimum ('model_opt') 
 # or as the sample optimum ('opt').
-opt_key = 0
+opt_key = 1
 opt_types = {0: 'model_opt', 1: 'opt'}
 
 ###############################################################################
@@ -1129,7 +1137,7 @@ for m in range(iterations):
                                                                  hyperparams_eig,
                                                                  hyperparams_exclz, jitters,
                                                                  bo_params, noise_df, folder,
-                                                                 dateslist[m])
+                                                                 dateslist[m], acq)
     # Results dictionary keys:
     # 'X_accum', 'Y_accum', 'X_final', 'Y_final', 'X_opt', 'Y_opt',
     # 'df_data_X_accum', 'df_data_Y_accum', 'df_data_n_samples',

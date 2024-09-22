@@ -323,10 +323,8 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
         cdict['alpha'].append((si, a, a))
 
     if name not in list(mpl.colormaps):
-        
         newcmap = mpl.colors.LinearSegmentedColormap(name, cdict)
-        plt.register_cmap(cmap=newcmap)
-        
+        mpl.colormaps.register(cmap=newcmap)
     else:
         
         raise Exception('A new colormap with the same name cannot be created.')

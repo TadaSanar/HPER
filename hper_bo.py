@@ -454,7 +454,7 @@ def bo_sim_target(targetprop_data_source,
                str(np.std(max_gradients)) +  '\n' +
                'Results are saved into the given folder.')
     #logging.log(21, message)
-    print(message)
+    #print(message)
                                                         
     # Not sure if these are needed anymore. I used to have some memory issues
     # that seemed to have gotten fixed by adding these, did not debug at the

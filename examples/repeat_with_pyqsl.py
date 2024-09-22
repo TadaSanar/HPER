@@ -1,3 +1,5 @@
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
 import matplotlib.pyplot as plt
 import numpy as np
 import pyqsl
@@ -6,6 +8,7 @@ from hper_util_repetitions_lcb import cg, build_filenames, set_bo_settings, set_
 from hper_bo import bo_sim_target
 from set_figure_defaults import FigureDefaults
 import pickle
+import psutil
 #
 fig_def = FigureDefaults(style='presentation')
 
@@ -25,7 +28,7 @@ def repeats_to_range(n_repetitions):
     return list(range(n_repetitions))
 
 def task(m, c_g, c_exclz, c_eig, jitters, bo_params, noise_df, folder, init_points, indices_of_repeats, save_figs,
-         gt_model_targetprop, gt_model_human, close_figs, save_disk_space,
+         gt_model_targetprop, gt_model_human, close_figs, save_disk_space, ground_truth_rA
          ):
     data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date = set_repeat_settings(m, [c_g], [c_exclz], [c_eig], [jitters])
     outputs = {}
@@ -51,6 +54,8 @@ def task(m, c_g, c_exclz, c_eig, jitters, bo_params, noise_df, folder, init_poin
         Y_accum_all = []
         data_fusion_params_all = []
         surrogate_model_params_all =  []
+        base_model_values = []
+        regrets = []
         
         # Initialize starting points for each repeat.
         for i in range(bo_params['n_repetitions']):
@@ -113,6 +118,10 @@ def task(m, c_g, c_exclz, c_eig, jitters, bo_params, noise_df, folder, init_poin
             
             optima.append(optimum)
             model_optima.append(model_optimum)
+            base_model_value = gt_model_targetprop.predict_noiseless(model_optimum[:, 0:-1])[0][:, 0]
+            regret = np.sqrt(np.sum((model_optimum[:, 0:-1] - ground_truth_rA)**2, axis=1))
+            regrets.append(regret)
+            base_model_values.append(base_model_value)
             X_accum_all.append(X_accum)
             Y_accum_all.append(Y_accum)
 
@@ -185,6 +194,8 @@ def task(m, c_g, c_exclz, c_eig, jitters, bo_params, noise_df, folder, init_poin
                 Y_accum_all = Y_accum_all,
                 surrogate_model_params_all=surrogate_model_params_all,
                 data_fusion_params_all=data_fusion_params_all,
+                base_model_optima=base_model_values,
+                regrets=regrets,
             )
         )
         # Getting % usage of virtual_memory ( 3rd field)
@@ -209,8 +220,8 @@ settings.c_eig = 0.1
 settings.c_exclz = 1
 settings.c_g = cg(np.array([0.9]))
 settings.jitters = 5
-settings.n_repetitions = 15
-settings.n_rounds = 15
+settings.n_repetitions = 30
+settings.n_rounds = 50
 settings.n_init = 1
 settings.batch_size = 1
 settings.materials = ['CsPbI', 'MAPbI', 'FAPbI']
@@ -220,6 +231,7 @@ settings.noise_df = pyqsl.Setting(relation='noise_target')
 settings.save_figs = False
 settings.save_disk_space = False
 settings.close_figs = True
+settings.ground_truth_rA = np.array([[0.165, 0.035, 0.795]])
 settings.indices_of_repeats = list(range(settings.n_repetitions.value))
 #pyqsl.Setting(relation=pyqsl.Function(function=repeats_to_range))
 settings.rounds_as_list = list(range(settings.n_rounds.value))
@@ -235,7 +247,25 @@ settings.bo_params = pyqsl.Setting(relation=pyqsl.Function(function=bo_args_to_d
 }))
 settings.m = 0
 settings.optima = pyqsl.Setting(dimensions=["indices_of_repeats", "rounds_as_list", "mat_dim"])
+settings.model_optima = pyqsl.Setting(dimensions=["indices_of_repeats", "rounds_as_list", "mat_dim"])
+settings.base_model_optima = pyqsl.Setting(dimensions=["indices_of_repeats", "rounds_as_list"])
+settings.regrets = pyqsl.Setting(dimensions=["indices_of_repeats", "rounds_as_list"])
 
 ## Execute task
-result = pyqsl.run(task=task, settings=settings, sweeps=dict(noise_target=np.linspace(0, 1, 5)))
+result = pyqsl.run(task=task, settings=settings, sweeps=dict(noise_target=np.linspace(0, 1, 12)), parallelize=True)
+result.save(settings.folder.value + '/' + 'results.pickle')
 result.dataset.optima.mean(dim='indices_of_repeats').sel(mat_dim='target', drop=True).plot.line(x="rounds_as_list")
+plt.show()
+result.dataset.model_optima.mean(dim='indices_of_repeats').sel(mat_dim='target', drop=True).plot.line(x="rounds_as_list")
+plt.show()
+result.dataset.base_model_optima.mean(dim='indices_of_repeats').plot.line(x="rounds_as_list")
+plt.show()
+##
+result.dataset.base_model_optima.mean(dim='indices_of_repeats').isel(rounds_as_list=-1).plot(label='base_model_optima')
+result.dataset.optima.mean(dim='indices_of_repeats').sel(mat_dim='target', drop=True).isel(rounds_as_list=-1).plot(label='optima')
+result.dataset.model_optima.mean(dim='indices_of_repeats').sel(mat_dim='target', drop=True).isel(rounds_as_list=-1).plot(label='model_optima')
+plt.legend()
+plt.show()
+## Regret plot
+result.dataset.regrets.mean(dim='indices_of_repeats').plot.line(x='rounds_as_list')
+plt.show()

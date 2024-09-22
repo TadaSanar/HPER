@@ -67,7 +67,7 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
         
     else:
         
-        jitter = None
+        jitter = 5#None
         
     BO_object = GPyOpt.methods.BayesianOptimization(f=None, # f=None because this code will be adapted in future for experimental BO cycles.
                                                     domain=bounds,

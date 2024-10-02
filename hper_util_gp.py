@@ -27,7 +27,6 @@ def predict_points(gpmodel, x_points, Y_data=None):
         # Prediction output of the GPModel is mean, standard deviation. So let's
         # dig out the GPRegression model and predict with that.
         posterior_mean, posterior_var = gpmodel.model.predict_noiseless(x_points)
-        #posterior_var = (posterior_std)**2
         posterior_std = np.sqrt(posterior_var)
         
     # If the model has been trained with already-scaled (zero mean, unit
@@ -278,17 +277,17 @@ def evaluate_GP_model_constraints(Y, noise_variance, kernel_variance,
 
 def extract_gpmodel_params(gpmodel):
     
-    if type(gpmodel.kern) is GPy.kern.Add:
+    if type(gpmodel.kern) is GPy.kern.src.add.Add:
         
         if gpmodel.kern.parameter_names()[0].find('Mat52') > -1:
             
-            lengthscale = gpmodel.kern.Mat52.lengthscale.values
+            lengthscale = gpmodel.kern.Mat52.lengthscale.values # Works for ARD and normal.
             variance = gpmodel.kern.Mat52.variance[0]
         
-        elif gpmodel.kern.parameter_names()[0].find('RBF') > -1:
+        elif gpmodel.kern.parameter_names()[0].find('rbf') > -1:
             
-            lengthscale = gpmodel.kern.RBF.lengthscale.values
-            variance = gpmodel.kern.RBF.variance[0]
+            lengthscale = gpmodel.kern.rbf.lengthscale.values
+            variance = gpmodel.kern.rbf.variance[0]
         
     else:
         

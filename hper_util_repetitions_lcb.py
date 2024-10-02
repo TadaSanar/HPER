@@ -185,7 +185,7 @@ def set_bo_settings(bo_params, acquisition_function, jitter,
         df_data_coll_params)
         
     return acq_fun_descr, acq_fun_params, df_data_coll_descr, df_data_coll_params
-
+'''
 def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
     
     hyperparams_eig = []
@@ -246,7 +246,7 @@ def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
     jitter = jitters[m // n_hpars]
         
     return data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date
-
+'''
 
 def set_repeat_settings_simplified(m, c_g, c_exclz, c_eig):
     

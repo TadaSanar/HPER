@@ -86,9 +86,9 @@ def data_fusion_param_builder(acquisition_function,
             if p['df_noise_variance'] == None:
                 n_variance = None # Set a value for the noise variance level if you have info on this, otherwise the model learns it.
             if p['p_beta'] == None:  # For probability model
-                p_beta = 0.04 #0.05
+                p_beta = 0.22#0.32 #0.05
             if p['p_midpoint'] == None:  # For P model
-                p_midpoint = 0.33#0.5  # For P
+                p_midpoint = 0.5#0.44#0.5  # For P
 
         elif data_fusion_settings['df_target_property_name'] == 'cutoff':
 
@@ -243,7 +243,8 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
     
     # Set the rest of acquisition function parameters.
     
-    if (acquisition_function == 'EI') or (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF'):
+    if ((acquisition_function == 'EI') or (acquisition_function == 'EI_DF') or 
+        (acquisition_function == 'LCB') or (acquisition_function == 'LCB_DF')):
     
         if optional_acq_settings is not None:
             
@@ -345,7 +346,7 @@ def df_data_coll_param_builder(df_method=None, gradient_param=None,
                 'Data fusion data collection has not been implemented for this case.')
 
         df_data_coll_params['method'] = method
-
+        
     return df_data_coll_params
 
 

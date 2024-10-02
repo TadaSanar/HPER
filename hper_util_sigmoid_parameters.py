@@ -32,14 +32,14 @@ def inv_sigmoid(mean, midpoint, beta):
 # synthesized samples are of high quality?
 # Default value is 0.66 (explanation: we evaluated sample quality using a 
 # 4-level rating of {0, 0.33, 0.66, 1}).
-x_50 = 0.5
+x_50 = 0.5#0.5
 
 # Which numeric sample quality rating will you give when 80% of the
 # synthesized samples are of high quality?
 # Default value is 0.5 (explanation: we evaluated sample quality using a 
 # 4-level rating of {0, 0.33, 0.66, 1} and wanted the algorithm to remain
 # conservative regarding ruling any samples fully out from the search).
-x_80 = 0.33
+x_80 = 0.2#0.33
 
 ###############################################################################
 # NO CHANGES NEEDED
@@ -47,7 +47,7 @@ x_80 = 0.33
 # probability distribution.
 
 # Range of human evaluation values.
-x = np.arange(0,1,0.01)
+x = np.arange(-1,1.7,0.05)
 
 # Sigmoid hyperparameter values.
 alpha_sel = x_50
@@ -62,7 +62,7 @@ plt.ylabel('P')
 plt.xlabel('Human-evaluated sample quality rating')
 plt.legend()
 plt.ylim([0,1])
-plt.xlim([0,1])
+plt.xlim((x.min(), x.max()))
 plt.title('Selected hyperparameters for P')
 plt.show()
 
@@ -106,3 +106,5 @@ plt.title('Effect of Beta (Alpha = ' + "{:.2f}".format(alpha) + ')')
 
 plt.show()
 
+#plot_P(model_human_retr, beta = 0.32, data_type = 'quality', midpoint = 0.44)
+plot_P(model_human_retr, beta = beta_sel, data_type = 'quality', midpoint = alpha_sel)

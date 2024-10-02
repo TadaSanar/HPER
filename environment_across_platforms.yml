@@ -1,4 +1,4 @@
-name: hper2
+name: hper-pyqsl
 channels:
   - defaults
 dependencies:

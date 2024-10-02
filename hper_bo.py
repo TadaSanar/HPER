@@ -407,7 +407,7 @@ def bo_sim_target(targetprop_data_source,
         
         # Plot ternary-specific plots.
         plotBO(rounds, x_next_df, BO_objects, materials, X_rounds, Y_rounds,
-               Y_accum, X_accum, x_next, limit_file_number=False,
+               Y_accum, X_accum, x_next, limit_file_number=True,
                time_str=time_now, results_folder=results_folder,
                minimize = True, close_figs = close_figs)
 
@@ -417,7 +417,7 @@ def bo_sim_target(targetprop_data_source,
             plotDF(rounds, materials, data_fusion_models,
                    data_fusion_XZ_accum, acq_fun_params['df_target_var'],
                    acq_fun_params['p_beta'], acq_fun_params['p_midpoint'],
-                   limit_file_number=False, time_str=time_now,
+                   limit_file_number=True, time_str=time_now,
                    results_folder=results_folder, close_figs = close_figs)
         
             message = ('Data fusion:\nGaussian noise variances in this run: ' + 

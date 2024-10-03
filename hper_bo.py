@@ -21,7 +21,7 @@ from hper_plots_data_fusion import plotDF
 
 # Helper functions that need to be modified if you switch away from GPy + GPyOpt.
 from hper_util_bo_gpyopt import build_constraint_str, run_bo
-from hper_util_gp import GP_model, evaluate_GP_model_constraints, constrain_optimize_GP_model, extract_gpmodel_params
+from hper_util_gp import GP_model, evaluate_GP_model_constraints, constrain_optimize_GP_model, extract_gpmodel_params#, predict_points_noisy
 
 
 def bo_sim_target(targetprop_data_source,
@@ -277,7 +277,7 @@ def bo_sim_target(targetprop_data_source,
             
             if df_data_coll_params is not None:
                 
-                # Do data fusion. Start by querying data fusion data from the model
+                # Do data fusion. Start by querying data fusion data from the GT model
                 
                 data_fusion_XZ_rounds, data_fusion_XZ_accum = query_data_fusion_data_from_model(
                     k, data_fusion_XZ_rounds, data_fusion_XZ_accum, init_points,
@@ -287,7 +287,30 @@ def bo_sim_target(targetprop_data_source,
             
                 # Save the data fusion data for this round to the params. #that will be sent to the BO.
                 acq_fun_params['df_data'] = data_fusion_XZ_accum[k]
-                
+                '''
+                # This is for confirming that the noise is generated in a correct way.
+                x_test = np.zeros((1000,3)) + np.array([[0.25, 0.25, 0.5]])
+                x_test_df = pd.DataFrame(x_test, columns = materials)
+                df_placeholder = pd.DataFrame(columns = data_fusion_XZ_rounds[k].columns)
+                noisy_temp_rounds, _ = query_data_fusion_data_from_model(
+                    k, [df_placeholder for p in range(k+1)], [df_placeholder for p in range(k+1)], x_test,
+                    [x_test_df for p in range(k+1)], gt_model_datafusionprop, rounds, materials, 
+                    acq_fun_params, noise_level = df_data_coll_params['noise_df'],
+                    seed = seed)
+                noiseless_temp_rounds, _ = query_data_fusion_data_from_model(
+                    k, [df_placeholder for p in range(k+1)], [df_placeholder for p in range(k+1)], x_test,
+                    [x_test_df for p in range(k+1)], gt_model_datafusionprop, rounds, materials, 
+                    acq_fun_params, noise_level = 0,
+                    seed = seed)
+                plt.figure()
+                plt.title('Noise histogram noise level ' + 
+                          str(df_data_coll_params['noise_df']) + 
+                          ', GNS = ' +
+                          str(np.sqrt(gt_model_datafusionprop.Gaussian_noise.gaussian_variance()[0])))
+                plt.hist(noisy_temp_rounds[-1].iloc[:,-1] - noiseless_temp_rounds[-1].iloc[:,-1], bins = 50 )
+                plt.show()
+                '''
+        
         if df_data_coll_params is not None:
             
             if k == 0:

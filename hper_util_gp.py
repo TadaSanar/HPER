@@ -69,7 +69,9 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
         gaussian_noise_variance = gaussian_noise_variance * np.var(Y_data)
         
     # Adding Gaussian noise to the mean predictions.
-    posterior_mean_noisy = normalvariate(posterior_mean, 
+    posterior_mean_noisy = np.zeros(posterior_mean.shape)
+    for i in range(posterior_mean.shape[0]):
+        posterior_mean_noisy[i,:] = normalvariate(posterior_mean[i, :], 
                                  np.sqrt(gaussian_noise_variance)*noise_level)
         
         #np.random.normal(
@@ -81,7 +83,7 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
     #logging.log(21, 'Posterior mean: ' + str(posterior_mean))
     #logging.log(21, 'Posterior mean noisy: ' + str(posterior_mean_noisy))
     #logging.log(21, 'Seed: ' + str(np.random.get_state()[1][0]))
-    
+    #print(posterior_mean_noisy-posterior_mean)
     #draws = np.zeros((1000,))
     #for i in range(1000):
     #    draws[i] = normalvariate(posterior_mean[0], 

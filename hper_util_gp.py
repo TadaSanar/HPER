@@ -118,7 +118,7 @@ def GP_model(data_fusion_data, data_fusion_target_variable = 'dGmix (ev/f.u.)',
             X = X.values # Optimization did not succeed without type conversion.
             Y = Y.values
             
-            init_hyperpars, lims_kernel_var, lims_noise_var = evaluate_GP_model_constraints(
+            init_hyperpars, lims_kernel_var, lims_noise_var, lims_kernel_ls = evaluate_GP_model_constraints(
                 Y, noise_variance, variance, lengthscale, 
                 optimize_hyperpar = optimize_hyperpar, 
                 domain_boundaries = domain_boundaries)
@@ -135,7 +135,8 @@ def GP_model(data_fusion_data, data_fusion_target_variable = 'dGmix (ev/f.u.)',
             
             constrain_optimize_GP_model(model, init_hyperpars = init_hyperpars,
                                         lims_kernel_var = lims_kernel_var,
-                                        lims_noise_var = lims_noise_var, 
+                                        lims_noise_var = lims_noise_var,
+                                        lims_kernel_ls = lims_kernel_ls,
                                         optimize_hyperpar = optimize_hyperpar)
             
     return model
@@ -146,6 +147,7 @@ def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
                                                          'kernel_ls': None},
                                 lims_kernel_var = [None, None], 
                                 lims_noise_var = [None, None], 
+                                lims_kernel_ls = [None, None],
                                 optimize_hyperpar = True, warning = False, 
                                 verbose = False, max_iters = 1000, 
                                 num_restarts = 2):
@@ -166,6 +168,10 @@ def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
                                                        lims_kernel_var[1],
                                                        warning = warning)
                 
+                model.Mat52.lengthscale.constrain_bounded(lims_kernel_ls[0], 
+                                                       lims_kernel_ls[1],
+                                                       warning = warning)
+                
             else:
                 
                 # The upper bound is set to the noise level that corresponds to
@@ -177,6 +183,9 @@ def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
                 # the model sometimes converged into ridiculous kernel variance
                 # values.
                 model.Mat52.variance.constrain_fixed(init_hyperpars['kernel_var'], 
+                                                     warning = warning)
+                
+                model.Mat52.lengthscale.constrain_fixed(init_hyperpars['kernel_ls'], 
                                                      warning = warning)
                 
             # optimize
@@ -262,20 +271,28 @@ def evaluate_GP_model_constraints(Y, noise_variance, kernel_variance,
             
             kernel_var_upper_limit += kernel_var_lower_limit
         
+        # Almost open boundaries for the lengthscale optimizations because they
+        # do not typically cause issues.
+        kernel_ls_lower_limit = 0
+        kernel_ls_upper_limit = (domain_boundaries[1] - domain_boundaries[0]) * 100
+        
     else:
         
         noise_var_lower_limit = None
         noise_var_upper_limit = None
         kernel_var_lower_limit = None
         kernel_var_upper_limit = None
+        kernel_ls_lower_limit = None
+        kernel_ls_upper_limit = None
     
     init_hyperpars = {'noise_var': noise_var, 'kernel_var': kernel_var, 
                       'kernel_ls': kernel_ls}
     
     lims_kernel_var = [kernel_var_lower_limit, kernel_var_upper_limit]
     lims_noise_var = [noise_var_lower_limit, noise_var_upper_limit]
+    lims_kernel_ls = [kernel_ls_lower_limit, kernel_ls_upper_limit]
     
-    return init_hyperpars, lims_kernel_var, lims_noise_var 
+    return init_hyperpars, lims_kernel_var, lims_noise_var, lims_kernel_ls
 
 def extract_gpmodel_params(gpmodel):
     

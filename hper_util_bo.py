@@ -710,7 +710,7 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
                         
                 if results_folder is not None:
                     
-                    filename = results_folder + 'Hyperpar-' + i
+                    filename = results_folder + 'Hyperpar-' + i + time_str
                 
                 plt.tight_layout()
                 
@@ -739,7 +739,7 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
                         
                 if results_folder is not None:
                     
-                    filename = results_folder + 'DFHyperpar-' + i
+                    filename = results_folder + 'DFHyperpar-' + i + time_str
                 
                 plt.tight_layout()
                 
@@ -894,6 +894,33 @@ def create_optima_arrays(BO_objects, X_accum, Y_accum, rounds, materials,
     return optimum, model_optimum
 
 
+
+def create_optima_arrays_single_round(GP_model, X, Y, materials,
+                              ternary, domain_boundaries):
+    
+    # GP model is GPRegression model!
+    
+    # Minimum value vs rounds (from the samples).
+    optimum = np.full((len(materials) + 1), np.nan)
+    # Minimum value vs rounds (from the model).
+    model_optimum = np.full((len(materials) + 1), np.nan)    
+    
+    idx = np.argmin(Y, axis=0)
+    opt = Y[idx, 0]
+    loc = X[idx, :]
+    
+    optimum[0:-1] = loc
+    optimum[-1] = opt
+
+    
+    # Model optimum for unconstrained and constrained space.
+    model_optimum[0:-1], model_optimum[-1] = find_optimum(GP_model, # GPRegression model 
+                                                    Y_train = Y,
+                                                    ternary = ternary, 
+                                                    domain_boundaries = 
+                                                    domain_boundaries)
+        
+    return optimum, model_optimum
 
 
 

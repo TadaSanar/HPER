@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from hper_fun import determine_data_fusion_points
 
 # Helper functions that are not specific to GPyOpt or GPy Bayesian optimization and Gaussian process regression packages.
-from hper_util_bo import fill_accum_df_with_this_round, query_target_data_from_model, query_data_fusion_data_from_model, create_optima_arrays, plot_basic
+from hper_util_bo import fill_accum_df_with_this_round, query_target_data_from_model, query_data_fusion_data_from_model, create_optima_arrays_single_round, plot_basic
 from hper_plots_target import plotBO
 from hper_plots_data_fusion import plotDF
 
@@ -29,7 +29,7 @@ def bo_sim_target(targetprop_data_source,
                   materials=['CsPbI', 'MAPbI', 'FAPbI'], rounds=10,
                   init_points=None, batch_size=1,
                   acquisition_function='EI', acq_fun_params=None,
-                  df_data_coll_params=None, no_plots=False,
+                  df_data_coll_params=None, no_plots=True,
                   results_folder='./Results/', noise_target = 1,
                   seed = None, save_memory = True, close_figs = True):
     '''
@@ -192,6 +192,11 @@ def bo_sim_target(targetprop_data_source,
     # question).
     BO_objects = [None for j in range(rounds)]
     
+    # Minimum value vs rounds (from the samples).
+    optimum = np.full((rounds, len(materials) + 1), np.nan)
+    # Minimum value vs rounds (from the model).
+    model_optimum = np.full((rounds, len(materials) + 1), np.nan)    
+    
     
     if simulated_bo == False:
 
@@ -227,7 +232,13 @@ def bo_sim_target(targetprop_data_source,
         data_fusion_lengthscales = [None for j in range(rounds)]
         data_fusion_variances = [None for j in range(rounds)]
         data_fusion_gaussian_noises = [None for j in range(rounds)]
-                
+        
+        # Minimum value vs rounds (from the samples).
+        data_fusion_optimum = np.full((rounds, len(materials) + 1), np.nan)
+        # Minimum value vs rounds (from the model).
+        data_fusion_model_optimum = np.full((rounds, len(materials) + 1), np.nan)    
+        
+        
         if df_data_coll_params['use_model'] == False:
 
             # The actually collected data fusion points from the previous
@@ -336,7 +347,7 @@ def bo_sim_target(targetprop_data_source,
                                             Y = acq_fun_params['df_data'][[
                                                 acq_fun_params['df_target_var']]].values)
                     
-                    init_hyperpars_df, lims_kernel_var_df, lims_noise_var_df = evaluate_GP_model_constraints(
+                    init_hyperpars_df, lims_kernel_var_df, lims_noise_var_df, lims_kernel_ls_df = evaluate_GP_model_constraints(
                         Y = current_df_model.Y, 
                         noise_variance = acq_fun_params['df_noise_variance'], 
                         kernel_variance = acq_fun_params['df_kernel_variance'], 
@@ -346,7 +357,8 @@ def bo_sim_target(targetprop_data_source,
                     constrain_optimize_GP_model(current_df_model, 
                                                 init_hyperpars = init_hyperpars_df, 
                                                 lims_kernel_var = lims_kernel_var_df,
-                                                lims_noise_var = lims_kernel_var_df)
+                                                lims_noise_var = lims_kernel_var_df,
+                                                lims_kernel_ls = lims_kernel_ls_df)
                     
             #if (save_memory is False) or (k<2) or (no_plots == False):
                 
@@ -384,8 +396,30 @@ def bo_sim_target(targetprop_data_source,
                 x_next, current_surrogate_model_params, materials, bounds, k)
             
             data_fusion_lengthscales[k], data_fusion_variances[k], data_fusion_gaussian_noises[k] = extract_gpmodel_params(current_df_model)
+        
+        # Find optima locations before deleting BO objects (they are too large
+        # to be stored on laptop runs with more than about 100 rounds of
+        # optimization).
+        
+        optimum[k,:], model_optimum[k,:] = create_optima_arrays_single_round(
+            BO_objects[k].model.model, X_accum[k], Y_accum[k],  materials, ternary, 
+            domain_boundaries)
+        
+        if df_data_coll_params is not None:
             
-    
+            data_fusion_optimum[k,:], data_fusion_model_optimum[k,:] = create_optima_arrays_single_round(
+                data_fusion_models[k], data_fusion_XZ_accum[k].iloc[:,0:-1].values, 
+                data_fusion_XZ_accum[k].iloc[:,[-1]].values, materials, ternary, domain_boundaries)
+        
+        if (save_memory == True) and (no_plots == True) and (k > 0):
+            
+            BO_objects[k-1] = None
+            
+            if df_data_coll_params is not None:
+                data_fusion_models[k-1] = None
+        
+        
+
     ###########################################################################
     # DATA TREATMENT, PLOTTING, SAVING
     
@@ -412,16 +446,18 @@ def bo_sim_target(targetprop_data_source,
                               'df_data_accum': data_fusion_XZ_accum,
                               'df_data_hyperpars': {'df_data_lengthscales': data_fusion_lengthscales,
                               'df_data_variances': data_fusion_variances,
-                              'df_data_gaussian_noise_variances': data_fusion_gaussian_noises}
+                              'df_data_gaussian_noise_variances': data_fusion_gaussian_noises},
+                              'df_optimum': data_fusion_optimum,
+                              'df_model_optimum': data_fusion_model_optimum,
                               }
         
     else:
 
         data_fusion_params = None
     
-    optimum, model_optimum = create_optima_arrays(BO_objects, X_accum, Y_accum, 
-                                                  rounds, materials, ternary, 
-                                                  domain_boundaries)
+    #optimum, model_optimum = create_optima_arrays(BO_objects, X_accum, Y_accum, 
+    #                                              rounds, materials, ternary, 
+    #                                              domain_boundaries)
 
     if no_plots == False:
 
@@ -497,8 +533,6 @@ def bo_sim_target(targetprop_data_source,
     
     
     if (save_memory is True):
-        
-        BO_objects = [None] * (len(BO_objects))
         
         if (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF'):
             

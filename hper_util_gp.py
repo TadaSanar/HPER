@@ -73,7 +73,20 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
     for i in range(posterior_mean.shape[0]):
         posterior_mean_noisy[i,:] = normalvariate(posterior_mean[i, :], 
                                  np.sqrt(gaussian_noise_variance)*noise_level)
-        
+    
+    test_distr = np.zeros((1000,))
+    for i in range(1000):
+        test_distr[i] = normalvariate(posterior_mean[0, 0], 
+                                 np.sqrt(gaussian_noise_variance)*noise_level)
+    
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.hist(test_distr, bins = 50)
+    plt.scatter([posterior_mean[0, 0]], [1], c = 'k')
+    plt.scatter([posterior_mean[0, 0]-np.sqrt(gaussian_noise_variance)*noise_level], [5], c = 'r')
+    plt.scatter([posterior_mean[0, 0]-np.std(test_distr)], [10], c = 'm')
+    plt.show()
+    
         #np.random.normal(
         #posterior_mean, np.sqrt(gaussian_noise_variance)*noise_level)#np.sqrt(posterior_var)*noise_level)
     
@@ -187,12 +200,12 @@ def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
                 
                 model.Mat52.lengthscale.constrain_fixed(init_hyperpars['kernel_ls'], 
                                                      warning = warning)
-                
+            #print('LS before opt: ', model.Mat52.lengthscale.values)    
             # optimize
             model.optimize_restarts(max_iters = max_iters, 
                                     num_restarts = num_restarts, 
                                     verbose = verbose)
-            
+            #print('LS after opt: ', model.Mat52.lengthscale.values)    
             #message = ('Human Gaussian noise variance in model output: ' + 
             #           str(model.Gaussian_noise.variance[0]))
             #logging.log(21, message)
@@ -274,7 +287,7 @@ def evaluate_GP_model_constraints(Y, noise_variance, kernel_variance,
         # Almost open boundaries for the lengthscale optimizations because they
         # do not typically cause issues.
         kernel_ls_lower_limit = 0
-        kernel_ls_upper_limit = (domain_boundaries[1] - domain_boundaries[0]) * 100
+        kernel_ls_upper_limit = (domain_boundaries[1] - domain_boundaries[0]) * 5
         
     else:
         
@@ -310,11 +323,11 @@ def extract_gpmodel_params(gpmodel):
         
     else:
         
-        lengthscale = gpmodel.kern.lengthscale.values
-        variance = gpmodel.kern.variance[0]
+        lengthscale = gpmodel.kern.lengthscale.values.copy()
+        variance = gpmodel.kern.variance[0].copy()
         
     
-    gaussian_noise = gpmodel.Gaussian_noise.variance[0]
+    gaussian_noise = gpmodel.Gaussian_noise.variance[0].copy()
     
     
     return lengthscale, variance, gaussian_noise

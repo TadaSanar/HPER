@@ -298,6 +298,8 @@ def bo_sim_target(targetprop_data_source,
             
                 # Save the data fusion data for this round to the params. #that will be sent to the BO.
                 acq_fun_params['df_data'] = data_fusion_XZ_accum[k]
+                
+                
                 '''
                 # This is for confirming that the noise is generated in a correct way.
                 x_test = np.zeros((1000,3)) + np.array([[0.25, 0.25, 0.5]])
@@ -354,12 +356,13 @@ def bo_sim_target(targetprop_data_source,
                         lengthscale = acq_fun_params['df_kernel_lengthscale'],
                         domain_boundaries = domain_boundaries)
                     
+                    #print('LS and var of the current DF model before opt: ', current_df_model.Mat52.lengthscale.values, current_df_model.Mat52.variance.values)
                     constrain_optimize_GP_model(current_df_model, 
                                                 init_hyperpars = init_hyperpars_df, 
                                                 lims_kernel_var = lims_kernel_var_df,
                                                 lims_noise_var = lims_kernel_var_df,
                                                 lims_kernel_ls = lims_kernel_ls_df)
-                    
+                    #print('LS and var of the current DF model after opt: ', current_df_model.Mat52.lengthscale.values, current_df_model.Mat52.variance.values)
             #if (save_memory is False) or (k<2) or (no_plots == False):
                 
             data_fusion_models[k] = current_df_model.copy()

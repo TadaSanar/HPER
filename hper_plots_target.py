@@ -385,6 +385,7 @@ def init_plots(rounds, limit_file_number, time_str, results_folder):
     mean = [None for k in range(rounds)]
     std = [None for k in range(rounds)]
     acq = [None for k in range(rounds)]
+    ref_acq = [None for k in range(rounds)]
     
     #original_folder = os.getcwd()
     #os.chdir(original_folder)
@@ -408,7 +409,7 @@ def init_plots(rounds, limit_file_number, time_str, results_folder):
         
         rounds_to_plot = range(rounds)
     
-    return points, mean, std, acq, time_now, results_dir, rounds_to_plot
+    return points, mean, std, acq, ref_acq, time_now, results_dir, rounds_to_plot
 
 def fill_ternary_grid(mean, std, GP_model, points, y_train_data = None):
     
@@ -441,8 +442,11 @@ def fill_ternary_grid(mean, std, GP_model, points, y_train_data = None):
     return mean, std
 '''
 
-def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points, 
+def fill_ternary_grids(mean, std, acq, ref_acq, rounds, BO_batch, points, 
                        y_train_data = None, scale_acq = True):
+    
+    if ref_acq != None:
+        return_ref_acq = True
     
     for i in range(rounds):
         
@@ -466,8 +470,49 @@ def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points,
         else:
             
             acq[i] = acq_i
-
-    return mean, std, acq    
+            
+        if return_ref_acq == True:
+            
+            from GPyOpt.acquisitions.LCB_DF import AcquisitionLCB_DF
+            from GPyOpt.acquisitions.EI_DF import AcquisitionEI_DF
+            
+            if type(BO_batch[i].acquisition) is AcquisitionLCB_DF:
+                
+                from GPyOpt.acquisitions.LCB import AcquisitionLCB
+                model = BO_batch[i].acquisition.model
+                expl_w = BO_batch[i].acquisition.exploration_weight
+                space = BO_batch[i].acquisition.space
+                optimizer = BO_batch[i].acquisition.optimizer
+                ref_acq_obj = AcquisitionLCB(model=model, space=space, optimizer=optimizer, 
+                                  exploration_weight=expl_w)
+                ref_acq_i=ref_acq_obj.acquisition_function(points)
+                
+            elif type(BO_batch[i].acquisition) is AcquisitionEI_DF:
+                
+                from GPyOpt.acquisitions.EI import AcquisitionEI
+                model = BO_batch[i].acquisition.model
+                jitter = BO_batch[i].acquisition.jitter
+                space = BO_batch[i].acquisition.space
+                optimizer = BO_batch[i].acquisition.optimizer
+                ref_acq_obj = AcquisitionEI(model=model, space=space, optimizer=optimizer, 
+                                  jitter=jitter)
+                
+                ref_acq_i=ref_acq_obj.acquisition_function(points)
+                
+            else:
+                
+                ref_acq_i = None
+                
+            if (scale_acq is True) and (ref_acq_i is not None):
+                    
+                # Scaling the acquisition function to btw 0 and 1.
+                ref_acq[i] = (-ref_acq_i - min(-ref_acq_i))/(max(-ref_acq_i - min(-ref_acq_i)))
+                    
+            else:
+                    
+                ref_acq[i] = ref_acq_i
+                
+    return mean, std, acq, ref_acq
     
     
 def save_round_to_csv_files(mean, std, acq, rounds, materials, points,
@@ -689,13 +734,14 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
     # Create a ternary grid 'points', the necessary folder structure, and 
     # file name templates. Initialize the posterior mean and st.dev., and
     # acquisition function lists.
-    points, posterior_mean, posterior_std, acq_normalized, time_now, results_dir, rounds_to_plot = init_plots(
+    points, posterior_mean, posterior_std, acq_normalized, ref_acq_normalized, time_now, results_dir, rounds_to_plot = init_plots(
         rounds, limit_file_number, time_str, results_folder)
     
     # Fill in the lists with surfaces to plot.
-    posterior_mean, posterior_std, acq_normalized = fill_ternary_grids(posterior_mean, 
+    posterior_mean, posterior_std, acq_normalized, ref_acq_normalized = fill_ternary_grids(posterior_mean, 
                                                                        posterior_std, 
                                                                        acq_normalized, 
+                                                                       ref_acq_normalized, 
                                                                        rounds, 
                                                                        BO_objects, 
                                                                        points, 
@@ -744,8 +790,10 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
         
         if i == 0:
             acq_to_plot = None # At the beginning, we have an even distribution.
+            ref_acq_to_plot = None
         else:
             acq_to_plot = acq_normalized[i-1]
+            ref_acq_to_plot = ref_acq_normalized[i-1]
             # Note i-1, this is because acq is saved at the end of each round
             # and here we plot acq at the beginning of each round.
         
@@ -769,6 +817,14 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
                       color_lims = lims_s,
                       saveas = results_dir + 'St-Dev-of-modelled-Ic-round' +
                       str(i) + '-' + time_now, close_figs = close_figs)
+        
+        if ref_acq_to_plot is not None:
+            plot_acq_and_data(points, ref_acq_to_plot, X_rounds[i].values, 
+                              color_lims = lims_a, 
+                              cbar_label = r'$Ref acq(\theta)$ in round ' + str(i),
+                              saveas = results_dir +
+                              'Ref-acq-with-single-round-samples-round'+str(i) + 
+                              '-' + time_now, close_figs = close_figs)
         
         if (limit_file_number == False):        
             

@@ -51,8 +51,7 @@ def plotDF(rounds, materials, df_models, df_data_accum, df_variable,
     
            
     #suggestion_df, compositions_input, degradation_input, BO_batch, materials, X_rounds, x_next, Y_step, X_step, limit_file_number = True, time_str = None, new_df_points_x, new_df_points_y, current_data_fusion_data, current_df_model, beta, midpoint):
-    
-    points, gp_mean, gp_std, p, time_now, results_dir, rounds_to_plot = init_plots(
+    points, gp_mean, gp_std, p, _, time_now, results_dir, rounds_to_plot = init_plots(
         rounds, limit_file_number, time_str, results_folder)
     
     '''

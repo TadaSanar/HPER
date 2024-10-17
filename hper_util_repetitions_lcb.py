@@ -65,7 +65,7 @@ def cg(p_above, std=1):
 
 
 def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, 
-                    fetch_file_date=None, m=None):
+                    fetch_file_date=None, m=None, additional_idx = None):
 
     if fetch_file_date is None:
 
@@ -75,6 +75,10 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr,
         if m is not None:
 
             time_now = time_now + '-m' + str(m)
+            
+        if additional_idx is not None:
+            
+            time_now = time_now + '-' + str(additional_idx)
 
     else:
 
@@ -152,6 +156,7 @@ def set_bo_settings(bo_params, acquisition_function, jitter,
         optional_data_fusion_settings = {'df_target_property_name': data_fusion_property,
                                          'df_input_variables': bo_params['materials']
                                          }
+    
     
     acq_fun_params = acq_param_builder(acquisition_function,
                                        optional_data_fusion_settings = optional_data_fusion_settings,
@@ -248,13 +253,27 @@ def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
     return data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date
 '''
 
-def set_repeat_settings_simplified(m, c_g, c_exclz, c_eig):
+def set_repeat_settings_simplified(m, c_g, c_exclz, c_eig, bo_params):
+    
+    if bo_params['acquisition_function'].find('LCB') >= 0:
+        af_base = 'LCB'
+    
+    elif bo_params['acquisition_function'].find('EI_noisy') >= 0:
+        af_base = 'EI_noisy'
+        
+    elif bo_params['acquisition_function'].find('EI') >= 0:
+        af_base = 'EI'
+    
+    else:
+        raise Exception('Unknown acquisition function (' + 
+                        bo_params['acquisition_function'] +
+                        ') for the data fusion implementation!')
     
     if m  == 0:
 
         data_fusion_property = None
         df_data_coll_method = None
-        acquisition_function = 'LCB'
+        acquisition_function = af_base # Never use data fusion
         c_grad = None
         c_e = None
         
@@ -262,7 +281,7 @@ def set_repeat_settings_simplified(m, c_g, c_exclz, c_eig):
 
         data_fusion_property = 'quality'
         df_data_coll_method = 'model_all'
-        acquisition_function = 'LCB_DF'
+        acquisition_function = bo_params['acquisition_function']
         c_grad = None
         c_e = None
         
@@ -272,7 +291,7 @@ def set_repeat_settings_simplified(m, c_g, c_exclz, c_eig):
         df_data_coll_method = 'model_necessary_eig'
         c_grad = c_g
         c_e = c_eig
-        acquisition_function = 'LCB_DF'
+        acquisition_function = bo_params['acquisition_function']
         
     if m == 3:
 
@@ -280,6 +299,6 @@ def set_repeat_settings_simplified(m, c_g, c_exclz, c_eig):
         df_data_coll_method = 'model_necessary_exclz'
         c_grad = c_g
         c_e = c_exclz
-        acquisition_function = 'LCB_DF'
+        acquisition_function = bo_params['acquisition_function']
     
     return data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e

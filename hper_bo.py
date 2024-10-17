@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from hper_fun import determine_data_fusion_points
 
 # Helper functions that are not specific to GPyOpt or GPy Bayesian optimization and Gaussian process regression packages.
-from hper_util_bo import fill_accum_df_with_this_round, query_target_data_from_model, query_data_fusion_data_from_model, create_optima_arrays_single_round, plot_basic
+from hper_util_bo import fill_accum_df_with_this_round, query_target_data_from_model, query_data_fusion_data_from_model, create_optima_arrays_single_round, plot_basic, pad_list_items
 from hper_plots_target import plotBO
 from hper_plots_data_fusion import plotDF
 
@@ -279,16 +279,18 @@ def bo_sim_target(targetprop_data_source,
 
         if (function == True):
             
-            # Query target variable values from the provided ground truth model
-            # and update X_rounds, Y_rounds, X_accum, Y_accum in place.
-            X_rounds, Y_rounds, X_accum, Y_accum = query_target_data_from_model(
-                k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next,
-                gt_model_targetprop, rounds, materials, noise_level = noise_target,
-                seed = seed)
-            
-            if df_data_coll_params is not None:
+            if df_data_coll_params is None:
                 
-                # Do data fusion. Start by querying data fusion data from the GT model
+                # Query target variable values from the provided ground truth model
+                # and update X_rounds, Y_rounds, X_accum, Y_accum in place.
+                X_rounds, Y_rounds, X_accum, Y_accum = query_target_data_from_model(
+                    k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next,
+                    gt_model_targetprop, rounds, materials, noise_level = noise_target,
+                    seed = seed)
+            
+            else:
+                
+                # Do data fusion first. Start by querying data fusion data from the GT model
                 
                 data_fusion_XZ_rounds, data_fusion_XZ_accum = query_data_fusion_data_from_model(
                     k, data_fusion_XZ_rounds, data_fusion_XZ_accum, init_points,
@@ -299,7 +301,23 @@ def bo_sim_target(targetprop_data_source,
                 # Save the data fusion data for this round to the params. #that will be sent to the BO.
                 acq_fun_params['df_data'] = data_fusion_XZ_accum[k]
                 
+                drop_bad_samples = True
+                if (drop_bad_samples == True) & (k>0):
+                    
+                    lim_bad = 1.1
+                    idcs = np.ravel(np.argwhere(data_fusion_XZ_rounds[k].iloc[:,-1].values > lim_bad))
+                    if idcs.shape[0] > 0:
+                        x_next[k-1] = np.delete(x_next[k-1], idcs, axis = 0)
                 
+                # Query target variable values from the provided ground truth model
+                # and update X_rounds, Y_rounds, X_accum, Y_accum in place.
+                X_rounds, Y_rounds, X_accum, Y_accum = query_target_data_from_model(
+                            k, X_rounds, Y_rounds, X_accum, Y_accum, init_points, x_next,
+                            gt_model_targetprop, rounds, materials, noise_level = noise_target,
+                            seed = seed)
+                        
+                        
+                    
                 '''
                 # This is for confirming that the noise is generated in a correct way.
                 x_test = np.zeros((1000,3)) + np.array([[0.25, 0.25, 0.5]])
@@ -426,10 +444,10 @@ def bo_sim_target(targetprop_data_source,
     ###########################################################################
     # DATA TREATMENT, PLOTTING, SAVING
     
-    print('Before plots and saves:\n')
-    print('RAM memory % used:', psutil.virtual_memory()[2])
+    #print('Before plots and saves:\n')
+    #print('RAM memory % used:', psutil.virtual_memory()[2])
     
-    message = 'Last suggestions for the next sampling points: ' + str(x_next[-1])
+    #message = 'Last suggestions for the next sampling points: ' + str(x_next[-1])
     #logging.log(21, message)
     
     # Save the model as an backup
@@ -526,23 +544,40 @@ def bo_sim_target(targetprop_data_source,
     X_rounds = X_rounds.copy()
     Y_rounds = Y_rounds.copy()
     
-    print('After plots and saves:\n')
-    print('RAM memory % used:', psutil.virtual_memory()[2])
+    #print('After plots and saves:\n')
+    #print('RAM memory % used:', psutil.virtual_memory()[2])
     
     plt.close()
     
-    print('After closing figs:\n')
-    print('RAM memory % used:', psutil.virtual_memory()[2])
+    # Pad the target arrays with nans to a constant size if needed (data fusion
+    # arrays will have variable sizes and this should be okay).
+    # Padding is needed only when data fusion is used so that some of the
+    # low-quality samples will not be sampled for the target property.
+    target_n_rows = batch_size
+    X_rounds = pad_list_items(X_rounds, target_n_rows,
+                                  check_first_array = False)
+    Y_rounds = pad_list_items(Y_rounds, target_n_rows,
+                                  check_first_array = False)
+    for i in range(1,rounds):
+        target_n_rows = X_rounds[0].shape[0] + (batch_size * i)
+        X_accum[i] = pad_list_items(X_accum, target_n_rows,
+                                  check_first_array = False)[i]
+        Y_accum[i] = pad_list_items(Y_accum, target_n_rows,
+                                  check_first_array = False)[i]
+    
+    
+    #print('After closing figs:\n')
+    #print('RAM memory % used:', psutil.virtual_memory()[2])
     
     
     if (save_memory is True):
         
-        if (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF'):
+        if (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF') or (acquisition_function == 'EI_DF_noisy'):
             
             data_fusion_models = [None] * (len(data_fusion_models))
         
-    print('After clear-outs:\n')
-    print('RAM memory % used:', psutil.virtual_memory()[2])
+    #print('After clear-outs:\n')
+    #print('RAM memory % used:', psutil.virtual_memory()[2])
     
     
     return next_suggestions, optimum, model_optimum, X_rounds, Y_rounds, X_accum, Y_accum, surrogate_model_params, data_fusion_params, BO_objects

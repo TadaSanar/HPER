@@ -212,7 +212,7 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
 
     """
     
-    if (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF') or (acquisition_function == 'EI_DF_noisy'):
+    if (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF') or (acquisition_function == 'EI_noisy_DF'):
         
         # Do data fusion. Set the parameters required for data fusion.
         acq_fun_params = data_fusion_param_builder(acquisition_function,
@@ -246,7 +246,7 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
     
     if ((acquisition_function == 'EI') or (acquisition_function == 'EI_noisy') or
         (acquisition_function == 'EI_DF') or 
-        (acquisition_function == 'EI_DF_noisy') or 
+        (acquisition_function == 'EI_noisy_DF') or 
         (acquisition_function == 'LCB') or (acquisition_function == 'LCB_DF')):
     
         if optional_acq_settings is not None:
@@ -267,7 +267,7 @@ def acq_fun_param2descr(acq_fun, acq_fun_params=None):
 
     output_str = acq_fun
 
-    if (acq_fun == 'EI_DF') or (acq_fun == 'LCB_DF') or (acq_fun == 'EI_DF_noisy'):
+    if (acq_fun == 'EI_DF') or (acq_fun == 'LCB_DF') or (acq_fun == 'EI_noisy_DF'):
 
         df_params = acq_fun_params
         output_str = (output_str + '-dftarget-' + df_params['df_target_prop'] +

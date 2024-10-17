@@ -108,7 +108,7 @@ def plotDF(rounds, materials, df_models, df_data_accum, df_variable,
     for i in rounds_to_plot:
         
         data_x = df_data_accum[i].loc[:,materials].values
-        data_y = df_data_accum[i].iloc[:,-1].values/axis_scale
+        data_y = df_data_accum[i].iloc[:,[-1]].values/axis_scale
         
         if data_x.shape[0] == 0:
             

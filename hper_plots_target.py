@@ -34,20 +34,24 @@ def predict_points(gpmodel, x_points, Y_data=None):
         
     elif type(gpmodel) is GPyOpt.models.gpmodel.GPModel:
         
-        # Prediction output is mean, standard deviation.
-        posterior_mean, posterior_std = gpmodel.predict(x_points)
-        posterior_var = (posterior_std)**2
+        # Prediction output of the GPModel is mean, standard deviation. So let's
+        # dig out the GPRegression model and predict with that.
+        posterior_mean, posterior_var = gpmodel.model.predict_noiseless(x_points)
+        posterior_std = np.sqrt(posterior_var)
         
     # If the model has been trained with already-scaled (zero mean, unit
     # variance) data, the provided train data 'Y_data' will be used for scaling
     # the predictions to the correct units.
     if Y_data is not None:
         posterior_mean_true_units = posterior_mean * \
-            np.std(Y_data) + np.mean(Y_data)
-        posterior_std_true_units = posterior_std * np.std(Y_data)
+            np.nanstd(Y_data) + np.nanmean(Y_data)
+        posterior_std_true_units = posterior_std * np.nanstd(Y_data)
 
         posterior_mean = posterior_mean_true_units
         posterior_var = posterior_std_true_units**2
+        
+    #print('\nPredict points noiseless: ', posterior_mean, 
+    #      np.sqrt(posterior_var), '\n')
     
     return posterior_mean, posterior_var
 
@@ -195,7 +199,13 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         
         # Surf levels have been given, just specify the tick idx.
         tick_idx = np.arange(len(surf_levels))
+    
+    if ((np.isnan(v).any()) | (np.isnan(x).any()) | (np.isnan(y).any())) == True:
         
+        print(v)
+        print(x)
+        print(y)
+    
     # plot the contour
     im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels, norm = norm)
     
@@ -260,9 +270,9 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
     plt.tight_layout()
     
     if saveas:
-        fig.savefig(saveas + '.pdf', transparent = True)
+        #fig.savefig(saveas + '.pdf', transparent = True)
         #fig.savefig(saveas + '.svg', transparent = True)
-        #fig.savefig(saveas + '.png', dpi=300)
+        fig.savefig(saveas + '.png', dpi=300)
     
     if close_figs:
         
@@ -475,6 +485,7 @@ def fill_ternary_grids(mean, std, acq, ref_acq, rounds, BO_batch, points,
             
             from GPyOpt.acquisitions.LCB_DF import AcquisitionLCB_DF
             from GPyOpt.acquisitions.EI_DF import AcquisitionEI_DF
+            from GPyOpt.acquisitions.EI_noisy_DF import AcquisitionEI_noisy_DF
             
             if type(BO_batch[i].acquisition) is AcquisitionLCB_DF:
                 
@@ -495,6 +506,18 @@ def fill_ternary_grids(mean, std, acq, ref_acq, rounds, BO_batch, points,
                 space = BO_batch[i].acquisition.space
                 optimizer = BO_batch[i].acquisition.optimizer
                 ref_acq_obj = AcquisitionEI(model=model, space=space, optimizer=optimizer, 
+                                  jitter=jitter)
+                
+                ref_acq_i=ref_acq_obj.acquisition_function(points)
+                
+            elif type(BO_batch[i].acquisition) is AcquisitionEI_noisy_DF:
+                
+                from GPyOpt.acquisitions.EI_noisy import AcquisitionEI_noisy
+                model = BO_batch[i].acquisition.model
+                jitter = BO_batch[i].acquisition.jitter
+                space = BO_batch[i].acquisition.space
+                optimizer = BO_batch[i].acquisition.optimizer
+                ref_acq_obj = AcquisitionEI_noisy(model=model, space=space, optimizer=optimizer, 
                                   jitter=jitter)
                 
                 ref_acq_i=ref_acq_obj.acquisition_function(points)
@@ -527,11 +550,15 @@ def save_round_to_csv_files(mean, std, acq, rounds, materials, points,
             next_suggestions[i].to_csv(results_dir + 
                                        'Bayesian_suggestion_round_'+str(i) + 
                                        time_now + '.csv', float_format='%.3f')
-
-        inputs = x_data[i].copy()
-        inputs[mean_name] = y_data[i].values
+        
+        # Create DataFrame. Works also for empty DataFrames.
+        inputs = pd.DataFrame(columns = x_data[i].columns.append(
+            pd.Index([mean_name])))
+        if x_data[i].empty is False:
+            inputs = pd.concat((inputs, x_data[i])) 
+            inputs.loc[:, mean_name] = y_data[i].values
         inputs=inputs.sort_values(mean_name)
-        inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
+        #inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
 
         if (limit_file_number == False):
             inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+ 
@@ -553,7 +580,13 @@ def define_norm_for_surf_plot(target, color_lims = None):
         lims = color_lims
         
     else:
-        lims = [np.min(target), np.max(target)]
+        lims = [np.nanmin(target), np.nanmax(target)]
+    
+    if lims[0] == np.nan: # There is no data
+        lims[0] = 0
+        
+    if lims[1] == np.nan: # There is no data
+        lims[1] = 0
         
     if (lims[0] == 0) and (lims[1] == 0): # There's only zero data.
             
@@ -716,12 +749,12 @@ def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = '
     # Norm calculation needs to take account the mean data and sampled data.
     norm = define_norm_for_surf_plot(np.append(mean, data_y), 
                                      color_lims = color_lims)
-    
     triangleplot(points, mean, norm, 
                  cmap = cmap,
                  cbar_label = cbar_label, 
                  saveas = saveas,
-                 scatter_points = data_x, scatter_color = np.ravel(data_y),
+                 scatter_points = data_x, 
+                 scatter_color = np.ravel(data_y),
                  #cbar_spacing = None, cbar_ticks = cbar_ticks)
                  cbar_ticks = cbar_ticks, close_figs = close_figs)
 
@@ -729,7 +762,6 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
            BO_objects, materials, X_rounds, Y_rounds, Y_accum, X_accum, x_next,
            limit_file_number = True, time_str = None, 
            results_folder = './Results/', minimize = True, close_figs = False):
-    
     
     # Create a ternary grid 'points', the necessary folder structure, and 
     # file name templates. Initialize the posterior mean and st.dev., and
@@ -775,7 +807,6 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
     maxs = [Y_accum[i].max() for i in list(range(len(Y_accum)))]
     lims_samples = [np.min(mins)/axis_scale, np.max(maxs)/axis_scale]
     lims_posterior = [np.min(posterior_mean)/axis_scale, np.max(posterior_mean)/axis_scale]
-    
     
     lims_p = [np.min([lims_samples[0], lims_posterior[0]]), 
               np.max([lims_samples[1], lims_posterior[1]])]

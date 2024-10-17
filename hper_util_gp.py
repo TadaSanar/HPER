@@ -34,8 +34,8 @@ def predict_points(gpmodel, x_points, Y_data=None):
     # the predictions to the correct units.
     if Y_data is not None:
         posterior_mean_true_units = posterior_mean * \
-            np.std(Y_data) + np.mean(Y_data)
-        posterior_std_true_units = posterior_std * np.std(Y_data)
+            np.nanstd(Y_data) + np.nanmean(Y_data)
+        posterior_std_true_units = posterior_std * np.nanstd(Y_data)
 
         posterior_mean = posterior_mean_true_units
         posterior_var = posterior_std_true_units**2
@@ -66,7 +66,7 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
     if Y_data is not None:
         
         # Scale back.
-        gaussian_noise_variance = gaussian_noise_variance * np.var(Y_data)
+        gaussian_noise_variance = gaussian_noise_variance * np.nanvar(Y_data)
         
     # Adding Gaussian noise to the mean predictions.
     posterior_mean_noisy = np.zeros(posterior_mean.shape)
@@ -74,21 +74,21 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
         posterior_mean_noisy[i,:] = normalvariate(posterior_mean[i, :], 
                                  np.sqrt(gaussian_noise_variance)*noise_level)
     
-    test_distr = np.zeros((1000,))
-    for i in range(1000):
-        test_distr[i] = normalvariate(posterior_mean[0, 0], 
-                                 np.sqrt(gaussian_noise_variance)*noise_level)
+    #test_distr = np.zeros((1000,))
+    #for i in range(1000):
+    #    test_distr[i] = normalvariate(posterior_mean[0, 0], 
+    #                             np.sqrt(gaussian_noise_variance)*noise_level)
     
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.hist(test_distr, bins = 50)
-    plt.scatter([posterior_mean[0, 0]], [1], c = 'k')
-    plt.scatter([posterior_mean[0, 0]-np.sqrt(gaussian_noise_variance)*noise_level], [5], c = 'r')
-    plt.scatter([posterior_mean[0, 0]-np.std(test_distr)], [10], c = 'm')
-    plt.show()
+    #import matplotlib.pyplot as plt
+    #plt.figure()
+    #plt.hist(test_distr, bins = 50)
+    #plt.scatter([posterior_mean[0, 0]], [1], c = 'k')
+    #plt.scatter([posterior_mean[0, 0]-np.sqrt(gaussian_noise_variance)*noise_level], [5], c = 'r')
+    #plt.scatter([posterior_mean[0, 0]-np.std(test_distr)], [10], c = 'm')
+    #plt.show()
     
-        #np.random.normal(
-        #posterior_mean, np.sqrt(gaussian_noise_variance)*noise_level)#np.sqrt(posterior_var)*noise_level)
+    #np.random.normal(
+    #posterior_mean, np.sqrt(gaussian_noise_variance)*noise_level)#np.sqrt(posterior_var)*noise_level)
     
     #print('\nPredict points noisy: ', posterior_mean_noisy, posterior_mean, 
     #      np.sqrt(gaussian_noise_variance[0]), noise_level, '\n')

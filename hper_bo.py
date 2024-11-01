@@ -536,14 +536,6 @@ def bo_sim_target(targetprop_data_source,
     #logging.log(21, message)
     #print(message)
                                                         
-    # Not sure if these are needed anymore. I used to have some memory issues
-    # that seemed to have gotten fixed by adding these, did not debug at the
-    # time.
-    next_suggestions = x_next_df.copy()
-    optimum = optimum.copy()
-    X_rounds = X_rounds.copy()
-    Y_rounds = Y_rounds.copy()
-    
     #print('After plots and saves:\n')
     #print('RAM memory % used:', psutil.virtual_memory()[2])
     
@@ -568,6 +560,15 @@ def bo_sim_target(targetprop_data_source,
     
     #print('After closing figs:\n')
     #print('RAM memory % used:', psutil.virtual_memory()[2])
+    
+    # Not sure if these are needed anymore. I used to have some memory issues
+    # that seemed to have gotten fixed by adding these, did not debug at the
+    # time.
+    next_suggestions = x_next_df.copy()
+    optimum = optimum.copy()
+    X_rounds = X_rounds.copy()
+    Y_rounds = Y_rounds.copy()
+    
     
     
     if (save_memory is True):

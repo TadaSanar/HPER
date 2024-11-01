@@ -324,13 +324,13 @@ settings.gt_model_targetprop = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_targetprop"}))
 settings.gt_model_human = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_humanevals"}))
-settings.folder = './Results/20241022/Temp/'
+settings.folder = './Results/20241101/Temp/'
 settings.additional_idx_for_folder = None
 settings.c_eig = 0.25 # 0.1
 settings.c_exclz = 1
 settings.c_g = 0.315 #0.178  # cg(np.array([0.9]))
 settings.jitter = 2  # 7
-settings.n_repetitions = 35
+settings.n_repetitions = 3
 settings.n_rounds = 35
 settings.n_init = 4
 settings.batch_size = 1
@@ -393,9 +393,9 @@ settings.n_df = pyqsl.Setting(
 
 ###############################################################################
 # SWEEP OVER THESE PARAMS
-c_g_options = cg(np.linspace(0.01, 1, 5))
+c_g_options = cg(np.linspace(0.01, 1, 3))
 c_eig_options = np.linspace(0, 1, 5)
-c_exclz_options = np.linspace(0,0.7,8)
+c_exclz_options = np.linspace(0,0.7,3)
 #batch_size_options = np.array([3,4,5,8])
 
 # Set relations

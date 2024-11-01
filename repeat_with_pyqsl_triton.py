@@ -324,20 +324,20 @@ settings.gt_model_targetprop = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_targetprop"}))
 settings.gt_model_human = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_humanevals"}))
-settings.folder = './Results/20241101/Temp/'
+settings.folder = './Results/20241101/Betatest-noise100-LCB-lp/'
 settings.additional_idx_for_folder = None
 settings.c_eig = 0.25 # 0.1
 settings.c_exclz = 1
 settings.c_g = 0.315 #0.178  # cg(np.array([0.9]))
 settings.jitter = 2  # 7
-settings.n_repetitions = 3
-settings.n_rounds = 35
+settings.n_repetitions = 75
+settings.n_rounds = 50
 settings.n_init = 4
-settings.batch_size = 1
+settings.batch_size = 4
 settings.materials = ['CsPbI', 'MAPbI', 'FAPbI']
 settings.mat_dim = ['CsPbI', 'MAPbI', 'FAPbI', 'target']
 settings.target_dim = ['target']
-settings.noise_target = 0
+settings.noise_target = 1
 settings.noise_df = pyqsl.Setting(relation='noise_target')
 settings.save_figs = False
 settings.save_disk_space = True
@@ -358,7 +358,7 @@ settings.bo_params = pyqsl.Setting(relation=pyqsl.Function(function=bo_args_to_d
     "noise_target": "noise_target",
     "acquisition_function": "acquisition_function"
 }))
-settings.m = 3
+settings.m = 2
 settings.optima = pyqsl.Setting(
     dimensions=["indices_of_repeats", "rounds_as_list", "mat_dim"])
 
@@ -393,10 +393,12 @@ settings.n_df = pyqsl.Setting(
 
 ###############################################################################
 # SWEEP OVER THESE PARAMS
-c_g_options = cg(np.linspace(0.01, 1, 3))
-c_eig_options = np.linspace(0, 1, 5)
-c_exclz_options = np.linspace(0,0.7,3)
+#c_g_options = cg(np.linspace(0.01, 1, 3))
+#c_eig_options = np.linspace(0, 1, 5)
+#c_exclz_options = np.linspace(0,0.7,3)
 #batch_size_options = np.array([3,4,5,8])
+jitter_options = np.linspace(1,7,7)
+noise_options = np.linspace(0.5,1,2)
 
 # Set relations
 # settings.jitter.relation = pyqsl.Equation(equation="4 + noise_target * 5")
@@ -422,8 +424,8 @@ c_exclz_options = np.linspace(0,0.7,3)
 #    parallelize=False)
 
 result = pyqsl.run(task=task, settings=settings, sweeps=dict(
-    #m=np.array([0,1,2])
-    c_exclz = c_exclz_options, c_g = c_g_options
+    m=np.array([0,1])
+    #c_exclz = c_exclz_options, c_g = c_g_options
     ), parallelize=False)
 
 

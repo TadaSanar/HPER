@@ -331,7 +331,7 @@ settings.c_exclz = 1
 settings.c_g = 0.315 #0.178  # cg(np.array([0.9]))
 settings.jitter = 2  # 7
 settings.n_repetitions = 75
-settings.n_rounds = 50
+settings.n_rounds = 35
 settings.n_init = 4
 settings.batch_size = 4
 settings.materials = ['CsPbI', 'MAPbI', 'FAPbI']
@@ -397,7 +397,7 @@ settings.n_df = pyqsl.Setting(
 #c_eig_options = np.linspace(0, 1, 5)
 #c_exclz_options = np.linspace(0,0.7,3)
 #batch_size_options = np.array([3,4,5,8])
-jitter_options = np.linspace(1,7,7)
+jitter_options = np.linspace(1,6,6)
 #noise_options = np.linspace(0.5,1,2)
 
 # Set relations

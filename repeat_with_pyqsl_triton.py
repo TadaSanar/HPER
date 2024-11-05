@@ -398,7 +398,7 @@ settings.n_df = pyqsl.Setting(
 #c_exclz_options = np.linspace(0,0.7,3)
 #batch_size_options = np.array([3,4,5,8])
 jitter_options = np.linspace(1,7,7)
-noise_options = np.linspace(0.5,1,2)
+#noise_options = np.linspace(0.5,1,2)
 
 # Set relations
 # settings.jitter.relation = pyqsl.Equation(equation="4 + noise_target * 5")
@@ -424,7 +424,7 @@ noise_options = np.linspace(0.5,1,2)
 #    parallelize=False)
 
 result = pyqsl.run(task=task, settings=settings, sweeps=dict(
-    jitter = jitter_options, noise_target = noise_options, m=np.array([1,0])
+    jitter = jitter_options, m=np.array([1,0])
     #c_exclz = c_exclz_options, c_g = c_g_options
     ), parallelize=False)
 

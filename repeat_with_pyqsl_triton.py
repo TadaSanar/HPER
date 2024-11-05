@@ -324,7 +324,7 @@ settings.gt_model_targetprop = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_targetprop"}))
 settings.gt_model_human = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_humanevals"}))
-settings.folder = './Results/20241101/Betatest-noise100-LCB-lp/'
+settings.folder = './Results/20241105/Betatest-noise100-LCB-lp/'
 settings.additional_idx_for_folder = None
 settings.c_eig = 0.25 # 0.1
 settings.c_exclz = 1
@@ -424,7 +424,7 @@ noise_options = np.linspace(0.5,1,2)
 #    parallelize=False)
 
 result = pyqsl.run(task=task, settings=settings, sweeps=dict(
-    m=np.array([0,1])
+    jitter = jitter_options, noise_target = noise_options, m=np.array([1,0])
     #c_exclz = c_exclz_options, c_g = c_g_options
     ), parallelize=False)
 

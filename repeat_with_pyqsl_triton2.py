@@ -324,14 +324,14 @@ settings.gt_model_targetprop = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_targetprop"}))
 settings.gt_model_human = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_humanevals"}))
-settings.folder = './Results/20241107/Noiseless-exclzone-ho/'
+settings.folder = './Results/20241107/Noiseless-exlzone-ho-finalsettings/'
 settings.additional_idx_for_folder = None
 settings.c_eig = 0.25 # 0.1
-settings.c_exclz = 1
-settings.c_g = 0.315 #0.178  # cg(np.array([0.9]))
+settings.c_exclz = 20
+settings.c_g = 0.362 #0.178  # cg(np.array([0.9]))
 settings.jitter = 2  # 7
-settings.n_repetitions = 50
-settings.n_rounds = 45
+settings.n_repetitions = 75
+settings.n_rounds = 75
 settings.n_init = 4
 settings.batch_size = 1
 settings.materials = ['CsPbI', 'MAPbI', 'FAPbI']
@@ -393,12 +393,12 @@ settings.n_df = pyqsl.Setting(
 
 ###############################################################################
 # SWEEP OVER THESE PARAMS
-noise_options = np.linspace(0.5, 1, 2)
-jitter_options = np.linspace(1,7,7)
+#noise_options = np.linspace(0.5, 1, 2)
+#jitter_options = np.linspace(1,7,7)
 
-c_g_options = cg(np.linspace(0.01, 1, 8))#np.array([2.576, 0.667, 0.0]) #
-c_eig_options = np.linspace(0, 1, 5)
-c_exclz_options = np.linspace(0,70,8)#np.array([0, 10, 35, 70]) #
+#c_g_options = cg(np.linspace(0.01, 1, 8))#np.array([2.576, 0.667, 0.0]) #
+#c_eig_options = np.linspace(0, 1, 5)
+#c_exclz_options = np.linspace(0,70,8)#np.array([0, 10, 35, 70]) #
 #batch_size_options = np.array([3,4,5,8])
 
 # Set relations
@@ -425,8 +425,8 @@ c_exclz_options = np.linspace(0,70,8)#np.array([0, 10, 35, 70]) #
 #    parallelize=False)
 
 result = pyqsl.run(task=task, settings=settings, sweeps=dict(
-    #m=np.array([0,1,2])
-    c_exclz = c_exclz_options, c_g = c_g_options
+    m=np.array([0,1,3])
+    #c_exclz = c_exclz_options, c_g = c_g_options
     ), parallelize=False)
 
 

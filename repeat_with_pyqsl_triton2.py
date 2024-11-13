@@ -324,20 +324,20 @@ settings.gt_model_targetprop = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_targetprop"}))
 settings.gt_model_human = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_humanevals"}))
-settings.folder = './Results/20241107/Noiseless-exlzone-ho-finalsettings/'
+settings.folder = './Results/20241113/Noise100-LCB-lp-exclz-HO/'
 settings.additional_idx_for_folder = None
 settings.c_eig = 0.25 # 0.1
-settings.c_exclz = 20
-settings.c_g = 0.362 #0.178  # cg(np.array([0.9]))
-settings.jitter = 2  # 7
+settings.c_exclz = 1
+settings.c_g = 0.315 #0.178  # cg(np.array([0.9]))
+settings.jitter = 4  # 7
 settings.n_repetitions = 75
-settings.n_rounds = 75
+settings.n_rounds = 20
 settings.n_init = 4
-settings.batch_size = 1
+settings.batch_size = 4
 settings.materials = ['CsPbI', 'MAPbI', 'FAPbI']
 settings.mat_dim = ['CsPbI', 'MAPbI', 'FAPbI', 'target']
 settings.target_dim = ['target']
-settings.noise_target = 0
+settings.noise_target = 1
 settings.noise_df = pyqsl.Setting(relation='noise_target')
 settings.save_figs = False
 settings.save_disk_space = True
@@ -358,7 +358,7 @@ settings.bo_params = pyqsl.Setting(relation=pyqsl.Function(function=bo_args_to_d
     "noise_target": "noise_target",
     "acquisition_function": "acquisition_function"
 }))
-settings.m = 3
+settings.m = 2
 settings.optima = pyqsl.Setting(
     dimensions=["indices_of_repeats", "rounds_as_list", "mat_dim"])
 
@@ -374,14 +374,14 @@ settings.regrets = pyqsl.Setting(
     dimensions=["indices_of_repeats", "rounds_as_list"])
 settings.regrets_samples = pyqsl.Setting(
     dimensions=["indices_of_repeats", "rounds_as_list"])
-#settings.X_accum_final = pyqsl.Setting(
-#    dimensions=["indices_of_repeats", "samples_as_list", "materials"])
-#settings.Y_accum_final = pyqsl.Setting(
-#    dimensions=["indices_of_repeats", "samples_as_list", "target_dim"])
-#settings.X_accum_df_final = pyqsl.Setting(
-#    dimensions=["indices_of_repeats", "samples_as_list", "materials"])
-#settings.Y_accum_df_final = pyqsl.Setting(
-#    dimensions=["indices_of_repeats", "samples_as_list", "target_dim"])
+settings.X_accum_final = pyqsl.Setting(
+    dimensions=["indices_of_repeats", "samples_as_list", "materials"])
+settings.Y_accum_final = pyqsl.Setting(
+    dimensions=["indices_of_repeats", "samples_as_list", "target_dim"])
+settings.X_accum_df_final = pyqsl.Setting(
+    dimensions=["indices_of_repeats", "samples_as_list", "materials"])
+settings.Y_accum_df_final = pyqsl.Setting(
+    dimensions=["indices_of_repeats", "samples_as_list", "target_dim"])
 settings.lengthscales_target_all = pyqsl.Setting(
     dimensions=["indices_of_repeats", "rounds_as_list"])
 settings.variances_target_all = pyqsl.Setting(
@@ -393,13 +393,12 @@ settings.n_df = pyqsl.Setting(
 
 ###############################################################################
 # SWEEP OVER THESE PARAMS
-#noise_options = np.linspace(0.5, 1, 2)
-#jitter_options = np.linspace(1,7,7)
-
-#c_g_options = cg(np.linspace(0.01, 1, 8))#np.array([2.576, 0.667, 0.0]) #
-#c_eig_options = np.linspace(0, 1, 5)
-#c_exclz_options = np.linspace(0,70,8)#np.array([0, 10, 35, 70]) #
+c_g_options = cg(np.linspace(0.01, 1, 8))#np.array([2.576, 0.667, 0.0]) #
+#c_eig_options = np.linspace(0, 2, 8)
+c_exclz_options = np.linspace(0,70,8)#np.array([0, 10, 35, 70]) #
 #batch_size_options = np.array([3,4,5,8])
+#jitter_options = np.linspace(1,6,6)
+#noise_options = np.linspace(0.5,1,2)
 
 # Set relations
 # settings.jitter.relation = pyqsl.Equation(equation="4 + noise_target * 5")
@@ -425,8 +424,7 @@ settings.n_df = pyqsl.Setting(
 #    parallelize=False)
 
 result = pyqsl.run(task=task, settings=settings, sweeps=dict(
-    m=np.array([0,1,3])
-    #c_exclz = c_exclz_options, c_g = c_g_options
+    c_exclz = c_exclz_options, c_g = c_g_options
     ), parallelize=False)
 
 
@@ -689,7 +687,7 @@ result.dataset.regrets_samples.mean(
     dim='indices_of_repeats').plot.line(x='rounds_as_list')
 plt.show()
 
-###############################################################################
+
 # DF EIG HO
 
 # Compare benchmark criteria on fixed jitter, varying noise.
@@ -861,159 +859,7 @@ cbar.set_label('Support property')
 plt.title('All samples (all rounds and repetitions)')
 plt.show()
 
-###############################################################################
-# DF Exlusion Zone HO
 
-# Compare benchmark criteria on fixed jitter, varying noise.
-for i in range(len(c_g_options)):
-    result.dataset.optima.mean(dim='indices_of_repeats').sel(
-        mat_dim='target', c_g=c_g_options[i], drop=True).plot.line(x="rounds_as_list")
-plt.show()
-for i in range(len(c_g_options)):
-    result.dataset.model_optima.mean(dim='indices_of_repeats').sel(
-        mat_dim='target', c_g=c_g_options[i], drop=True).plot.line(x="rounds_as_list")
-plt.show()
-for i in range(len(c_g_options)):
-    result.dataset.base_model_optima.mean(dim='indices_of_repeats').sel(
-        c_g=c_g_options[i], drop=True).plot.line(x="rounds_as_list")
-plt.show()
-for i in range(len(c_g_options)):
-    result.dataset.regrets.mean(dim='indices_of_repeats').sel(
-        c_g=c_g_options[i], drop=True).plot.line(x='rounds_as_list')
-plt.show()
-for i in range(len(c_g_options)):
-    result.dataset.regrets_samples.mean(dim='indices_of_repeats').sel(
-        c_g=c_g_options[i], drop=True).plot.line(x='rounds_as_list')
-plt.show()
-for i in range(len(c_g_options)):
-    result.dataset.n_df.mean(dim='indices_of_repeats').sel(
-        c_g=c_g_options[i], drop=True).plot.line(x='rounds_as_list')
-plt.show()
-
-
-result.dataset.optima.mean(dim='indices_of_repeats').sel(
-    mat_dim='target', drop=True).isel(rounds_as_list=-1).plot()
-plt.show()
-result.dataset.model_optima.mean(dim='indices_of_repeats').sel(
-    mat_dim='target', drop=True).isel(rounds_as_list=-1).plot()
-plt.show()
-result.dataset.base_model_optima.mean(
-    dim='indices_of_repeats').isel(rounds_as_list=-1).plot()
-plt.show()
-result.dataset.regrets.mean(dim='indices_of_repeats').isel(
-    rounds_as_list=-1).plot()
-plt.show()
-result.dataset.regrets_samples.mean(dim='indices_of_repeats').isel(
-    rounds_as_list=-1).plot()
-plt.show()
-result.dataset.n_df.mean(dim='indices_of_repeats').isel(
-    rounds_as_list=-1).plot()
-plt.show()
-
-# Joint scatter plots on model optima
-round_to_plot = -1
-plt.figure()
-plt.title('All c_eig, all_repetitions, round=' + str(round_to_plot))
-plt.xlabel('Cs proportion')
-plt.ylabel('MA proportion')
-for i in range(len(c_g_options)):
-    myx = result.dataset.model_optima.isel(
-        rounds_as_list=round_to_plot, c_g=i).sel(mat_dim='CsPbI', drop=True)
-    myy = result.dataset.model_optima.isel(
-        rounds_as_list=round_to_plot, c_g=i).sel(mat_dim='MAPbI', drop=True)
-    myz = result.dataset.model_optima.isel(
-        rounds_as_list=round_to_plot, c_g=i).sel(mat_dim='target', drop=True)
-    plt.scatter(np.ravel(myx), np.ravel(myy), label='c_g = ' +
-            str(c_g_options[i]))  # 'Jitter #' + str(i))
-plt.xlim((0, 1))
-plt.ylim((0, 1))
-plt.legend()
-plt.show()
-
-# Sanity check: The values of the base model optima should be exactly the
-# same than sample optima in a noise-free case if everything is alright and
-# batch size is one.
-# Scatter plot on base model optima
-round_to_plot = -1
-plt.figure()
-plt.title('All c_eig, all_repetitions, round=' + str(round_to_plot))
-plt.xlabel('Cs proportion')
-plt.ylabel('MA proportion')
-myx = result.dataset.model_optima.isel(
-    rounds_as_list=round_to_plot).sel(mat_dim='CsPbI', drop=True)
-myy = result.dataset.model_optima.isel(
-    rounds_as_list=round_to_plot).sel(mat_dim='MAPbI', drop=True)
-myz = result.dataset.model_optima.isel(
-    rounds_as_list=round_to_plot).sel(mat_dim='target', drop=True)
-plt.scatter(np.ravel(myx), np.ravel(myy), c = np.ravel(myz))  # 'Jitter #' + str(i))
-plt.xlim((0, 1))
-plt.ylim((0, 1))
-cbar = plt.colorbar()
-cbar.set_label('Target value')
-plt.show()
-
-round_to_plot = -1
-plt.figure()
-plt.title('All c_eig, all_repetitions, round=' + str(round_to_plot))
-plt.xlabel('Cs proportion')
-plt.ylabel('MA proportion')
-myx = result.dataset.optima.isel(
-    rounds_as_list=round_to_plot).sel(mat_dim='CsPbI', drop=True)
-myy = result.dataset.optima.isel(
-    rounds_as_list=round_to_plot).sel(mat_dim='MAPbI', drop=True)
-myz = result.dataset.optima.isel(
-    rounds_as_list=round_to_plot).sel(mat_dim='target', drop=True)
-plt.scatter(np.ravel(myx), np.ravel(myy), c = np.ravel(myz))  # 'Jitter #' + str(i))
-plt.xlim((0, 1))
-plt.ylim((0, 1))
-cbar = plt.colorbar()
-cbar.set_label('Target value')
-plt.show()
-
-#Scatter plot on target property samples.
-c_g = c_g_options[-2]
-c_eig = c_eig_options[0]
-myx = result.dataset.X_accum_final.sel(
-    materials='CsPbI', c_g = c_g, c_eig = c_eig, drop=True)
-myy = result.dataset.X_accum_final.sel(
-    materials='MAPbI', c_g = c_g, c_eig = c_eig, drop=True)
-myz = result.dataset.Y_accum_final.sel(
-    target_dim='target', c_g = c_g, c_eig = c_eig, drop=True)
-plt.figure()
-plt.scatter(myx, myy, c=myz)
-plt.xlim((0, 1))
-plt.ylim((0, 1))
-plt.xlabel('CsPbI3')
-plt.ylabel('MAPbI3')
-cbar = plt.colorbar()
-cbar.set_label('Target property')
-plt.title('All samples (all rounds and repetitions)')
-plt.show()
-
-
-
-# Scatter plot on human evals
-c_g = c_g_options[-2]
-c_eig = c_eig_options[0]
-myx = result.dataset.X_accum_df_final.sel(
-    materials='CsPbI', c_g = c_g, c_eig = c_eig, drop=True)
-myy = result.dataset.X_accum_df_final.sel(
-    materials='MAPbI', c_g = c_g, c_eig = c_eig, drop=True)
-myz = result.dataset.Y_accum_df_final.sel(
-    target_dim='target', c_g = c_g, c_eig = c_eig, drop=True)
-plt.figure()
-plt.scatter(myx, myy, c=myz)
-plt.xlim((0, 1))
-plt.ylim((0, 1))
-plt.xlabel('CsPbI3')
-plt.ylabel('MAPbI3')
-cbar = plt.colorbar()
-cbar.set_label('Support property')
-plt.title('All samples (all rounds and repetitions)')
-plt.show()
-
-
-###############################################################################
 # SINGLE RUN
 
 # Compare benchmark criteria on fixed jitter, varying noise.

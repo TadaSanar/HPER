@@ -324,7 +324,7 @@ settings.gt_model_targetprop = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_targetprop"}))
 settings.gt_model_human = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_humanevals"}))
-settings.folder = './Results/20241113/Noise100-LCB-lp-exclz-HO/'
+settings.folder = './Results/20241120/Noiseless-LCB-lp-eig-HO/'
 settings.additional_idx_for_folder = None
 settings.c_eig = 0.25 # 0.1
 settings.c_exclz = 1
@@ -333,7 +333,7 @@ settings.jitter = 4  # 7
 settings.n_repetitions = 75
 settings.n_rounds = 20
 settings.n_init = 4
-settings.batch_size = 4
+settings.batch_size = 1
 settings.materials = ['CsPbI', 'MAPbI', 'FAPbI']
 settings.mat_dim = ['CsPbI', 'MAPbI', 'FAPbI', 'target']
 settings.target_dim = ['target']
@@ -374,14 +374,14 @@ settings.regrets = pyqsl.Setting(
     dimensions=["indices_of_repeats", "rounds_as_list"])
 settings.regrets_samples = pyqsl.Setting(
     dimensions=["indices_of_repeats", "rounds_as_list"])
-settings.X_accum_final = pyqsl.Setting(
-    dimensions=["indices_of_repeats", "samples_as_list", "materials"])
-settings.Y_accum_final = pyqsl.Setting(
-    dimensions=["indices_of_repeats", "samples_as_list", "target_dim"])
-settings.X_accum_df_final = pyqsl.Setting(
-    dimensions=["indices_of_repeats", "samples_as_list", "materials"])
-settings.Y_accum_df_final = pyqsl.Setting(
-    dimensions=["indices_of_repeats", "samples_as_list", "target_dim"])
+#settings.X_accum_final = pyqsl.Setting(
+#    dimensions=["indices_of_repeats", "samples_as_list", "materials"])
+#settings.Y_accum_final = pyqsl.Setting(
+#    dimensions=["indices_of_repeats", "samples_as_list", "target_dim"])
+#settings.X_accum_df_final = pyqsl.Setting(
+#    dimensions=["indices_of_repeats", "samples_as_list", "materials"])
+#settings.Y_accum_df_final = pyqsl.Setting(
+#    dimensions=["indices_of_repeats", "samples_as_list", "target_dim"])
 settings.lengthscales_target_all = pyqsl.Setting(
     dimensions=["indices_of_repeats", "rounds_as_list"])
 settings.variances_target_all = pyqsl.Setting(
@@ -394,8 +394,8 @@ settings.n_df = pyqsl.Setting(
 ###############################################################################
 # SWEEP OVER THESE PARAMS
 c_g_options = cg(np.linspace(0.01, 1, 8))#np.array([2.576, 0.667, 0.0]) #
-#c_eig_options = np.linspace(0, 2, 8)
-c_exclz_options = np.linspace(0,70,8)#np.array([0, 10, 35, 70]) #
+c_eig_options = np.array([0, 0.05, 0.07, 0.1, 0.25, 0.5, 1, 2])#np.linspace(0, 2, 8)
+#c_exclz_options = np.linspace(0,70,8)#np.array([0, 10, 35, 70]) #
 #batch_size_options = np.array([3,4,5,8])
 #jitter_options = np.linspace(1,6,6)
 #noise_options = np.linspace(0.5,1,2)
@@ -424,7 +424,7 @@ c_exclz_options = np.linspace(0,70,8)#np.array([0, 10, 35, 70]) #
 #    parallelize=False)
 
 result = pyqsl.run(task=task, settings=settings, sweeps=dict(
-    c_exclz = c_exclz_options, c_g = c_g_options
+    c_eig = c_eig_options, c_g = c_g_options
     ), parallelize=False)
 
 

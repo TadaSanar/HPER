@@ -324,12 +324,12 @@ settings.gt_model_targetprop = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_targetprop"}))
 settings.gt_model_human = pyqsl.Setting(relation=pyqsl.Function(
     function=load_GP_model, parameters={"path_model": "path_gtmodel_humanevals"}))
-settings.folder = './Results/20241120/Noise100-LCB-lp-eig-HO/'
+settings.folder = './Results/20241122/Noise50-LCB-lp-eig-HO/'
 settings.additional_idx_for_folder = None
 settings.c_eig = 0.25 # 0.1
 settings.c_exclz = 1
 settings.c_g = 0.315 #0.178  # cg(np.array([0.9]))
-settings.jitter = 4  # 7
+settings.jitter = 3  # 7
 settings.n_repetitions = 75
 settings.n_rounds = 20
 settings.n_init = 4
@@ -337,7 +337,7 @@ settings.batch_size = 4
 settings.materials = ['CsPbI', 'MAPbI', 'FAPbI']
 settings.mat_dim = ['CsPbI', 'MAPbI', 'FAPbI', 'target']
 settings.target_dim = ['target']
-settings.noise_target = 1
+settings.noise_target = 0.5
 settings.noise_df = pyqsl.Setting(relation='noise_target')
 settings.save_figs = False
 settings.save_disk_space = True

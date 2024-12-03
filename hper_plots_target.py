@@ -34,20 +34,24 @@ def predict_points(gpmodel, x_points, Y_data=None):
         
     elif type(gpmodel) is GPyOpt.models.gpmodel.GPModel:
         
-        # Prediction output is mean, standard deviation.
-        posterior_mean, posterior_std = gpmodel.predict(x_points)
-        posterior_var = (posterior_std)**2
+        # Prediction output of the GPModel is mean, standard deviation. So let's
+        # dig out the GPRegression model and predict with that.
+        posterior_mean, posterior_var = gpmodel.model.predict_noiseless(x_points)
+        posterior_std = np.sqrt(posterior_var)
         
     # If the model has been trained with already-scaled (zero mean, unit
     # variance) data, the provided train data 'Y_data' will be used for scaling
     # the predictions to the correct units.
     if Y_data is not None:
         posterior_mean_true_units = posterior_mean * \
-            np.std(Y_data) + np.mean(Y_data)
-        posterior_std_true_units = posterior_std * np.std(Y_data)
+            np.nanstd(Y_data) + np.nanmean(Y_data)
+        posterior_std_true_units = posterior_std * np.nanstd(Y_data)
 
         posterior_mean = posterior_mean_true_units
         posterior_var = posterior_std_true_units**2
+        
+    #print('\nPredict points noiseless: ', posterior_mean, 
+    #      np.sqrt(posterior_var), '\n')
     
     return posterior_mean, posterior_var
 
@@ -195,7 +199,13 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
         
         # Surf levels have been given, just specify the tick idx.
         tick_idx = np.arange(len(surf_levels))
+    
+    if ((np.isnan(v).any()) | (np.isnan(x).any()) | (np.isnan(y).any())) == True:
         
+        print(v)
+        print(x)
+        print(y)
+    
     # plot the contour
     im=ax.tricontourf(x,y,T.triangles,v, cmap=cmap, levels=surf_levels, norm = norm)
     
@@ -260,9 +270,9 @@ def triangleplot(surf_points, surf_data, norm, surf_axis_scale = 1, cmap = 'RdBu
     plt.tight_layout()
     
     if saveas:
-        fig.savefig(saveas + '.pdf', transparent = True)
+        #fig.savefig(saveas + '.pdf', transparent = True)
         #fig.savefig(saveas + '.svg', transparent = True)
-        #fig.savefig(saveas + '.png', dpi=300)
+        fig.savefig(saveas + '.png', dpi=300)
     
     if close_figs:
         
@@ -323,10 +333,8 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
         cdict['alpha'].append((si, a, a))
 
     if name not in list(mpl.colormaps):
-        
         newcmap = mpl.colors.LinearSegmentedColormap(name, cdict)
-        plt.register_cmap(cmap=newcmap)
-        
+        mpl.colormaps.register(cmap=newcmap)
     else:
         
         raise Exception('A new colormap with the same name cannot be created.')
@@ -387,6 +395,7 @@ def init_plots(rounds, limit_file_number, time_str, results_folder):
     mean = [None for k in range(rounds)]
     std = [None for k in range(rounds)]
     acq = [None for k in range(rounds)]
+    ref_acq = [None for k in range(rounds)]
     
     #original_folder = os.getcwd()
     #os.chdir(original_folder)
@@ -410,7 +419,7 @@ def init_plots(rounds, limit_file_number, time_str, results_folder):
         
         rounds_to_plot = range(rounds)
     
-    return points, mean, std, acq, time_now, results_dir, rounds_to_plot
+    return points, mean, std, acq, ref_acq, time_now, results_dir, rounds_to_plot
 
 def fill_ternary_grid(mean, std, GP_model, points, y_train_data = None):
     
@@ -443,8 +452,11 @@ def fill_ternary_grid(mean, std, GP_model, points, y_train_data = None):
     return mean, std
 '''
 
-def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points, 
+def fill_ternary_grids(mean, std, acq, ref_acq, rounds, BO_batch, points, 
                        y_train_data = None, scale_acq = True):
+    
+    if ref_acq != None:
+        return_ref_acq = True
     
     for i in range(rounds):
         
@@ -468,8 +480,62 @@ def fill_ternary_grids(mean, std, acq, rounds, BO_batch, points,
         else:
             
             acq[i] = acq_i
-
-    return mean, std, acq    
+            
+        if return_ref_acq == True:
+            
+            from GPyOpt.acquisitions.LCB_DF import AcquisitionLCB_DF
+            from GPyOpt.acquisitions.EI_DF import AcquisitionEI_DF
+            from GPyOpt.acquisitions.EI_noisy_DF import AcquisitionEI_noisy_DF
+            
+            if type(BO_batch[i].acquisition) is AcquisitionLCB_DF:
+                
+                from GPyOpt.acquisitions.LCB import AcquisitionLCB
+                model = BO_batch[i].acquisition.model
+                expl_w = BO_batch[i].acquisition.exploration_weight
+                space = BO_batch[i].acquisition.space
+                optimizer = BO_batch[i].acquisition.optimizer
+                ref_acq_obj = AcquisitionLCB(model=model, space=space, optimizer=optimizer, 
+                                  exploration_weight=expl_w)
+                ref_acq_i=ref_acq_obj.acquisition_function(points)
+                
+            elif type(BO_batch[i].acquisition) is AcquisitionEI_DF:
+                
+                from GPyOpt.acquisitions.EI import AcquisitionEI
+                model = BO_batch[i].acquisition.model
+                jitter = BO_batch[i].acquisition.jitter
+                space = BO_batch[i].acquisition.space
+                optimizer = BO_batch[i].acquisition.optimizer
+                ref_acq_obj = AcquisitionEI(model=model, space=space, optimizer=optimizer, 
+                                  jitter=jitter)
+                
+                ref_acq_i=ref_acq_obj.acquisition_function(points)
+                
+            elif type(BO_batch[i].acquisition) is AcquisitionEI_noisy_DF:
+                
+                from GPyOpt.acquisitions.EI_noisy import AcquisitionEI_noisy
+                model = BO_batch[i].acquisition.model
+                jitter = BO_batch[i].acquisition.jitter
+                space = BO_batch[i].acquisition.space
+                optimizer = BO_batch[i].acquisition.optimizer
+                ref_acq_obj = AcquisitionEI_noisy(model=model, space=space, optimizer=optimizer, 
+                                  jitter=jitter)
+                
+                ref_acq_i=ref_acq_obj.acquisition_function(points)
+                
+            else:
+                
+                ref_acq_i = None
+                
+            if (scale_acq is True) and (ref_acq_i is not None):
+                    
+                # Scaling the acquisition function to btw 0 and 1.
+                ref_acq[i] = (-ref_acq_i - min(-ref_acq_i))/(max(-ref_acq_i - min(-ref_acq_i)))
+                    
+            else:
+                    
+                ref_acq[i] = ref_acq_i
+                
+    return mean, std, acq, ref_acq
     
     
 def save_round_to_csv_files(mean, std, acq, rounds, materials, points,
@@ -484,11 +550,15 @@ def save_round_to_csv_files(mean, std, acq, rounds, materials, points,
             next_suggestions[i].to_csv(results_dir + 
                                        'Bayesian_suggestion_round_'+str(i) + 
                                        time_now + '.csv', float_format='%.3f')
-
-        inputs = x_data[i].copy()
-        inputs[mean_name] = y_data[i].values
+        
+        # Create DataFrame. Works also for empty DataFrames.
+        inputs = pd.DataFrame(columns = x_data[i].columns.append(
+            pd.Index([mean_name])))
+        if x_data[i].empty is False:
+            inputs = pd.concat((inputs, x_data[i])) 
+            inputs.loc[:, mean_name] = y_data[i].values
         inputs=inputs.sort_values(mean_name)
-        inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
+        #inputs=inputs.drop(columns=['Unnamed: 0'], errors='ignore')
 
         if (limit_file_number == False):
             inputs.to_csv(results_dir + 'Model_inputs_round_'+str(i)+ 
@@ -510,7 +580,13 @@ def define_norm_for_surf_plot(target, color_lims = None):
         lims = color_lims
         
     else:
-        lims = [np.min(target), np.max(target)]
+        lims = [np.nanmin(target), np.nanmax(target)]
+    
+    if lims[0] == np.nan: # There is no data
+        lims[0] = 0
+        
+    if lims[1] == np.nan: # There is no data
+        lims[1] = 0
         
     if (lims[0] == 0) and (lims[1] == 0): # There's only zero data.
             
@@ -673,12 +749,12 @@ def plot_mean_and_data(points, mean, data_x, data_y, color_lims = None, cmap = '
     # Norm calculation needs to take account the mean data and sampled data.
     norm = define_norm_for_surf_plot(np.append(mean, data_y), 
                                      color_lims = color_lims)
-    
     triangleplot(points, mean, norm, 
                  cmap = cmap,
                  cbar_label = cbar_label, 
                  saveas = saveas,
-                 scatter_points = data_x, scatter_color = np.ravel(data_y),
+                 scatter_points = data_x, 
+                 scatter_color = np.ravel(data_y),
                  #cbar_spacing = None, cbar_ticks = cbar_ticks)
                  cbar_ticks = cbar_ticks, close_figs = close_figs)
 
@@ -687,17 +763,17 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
            limit_file_number = True, time_str = None, 
            results_folder = './Results/', minimize = True, close_figs = False):
     
-    
     # Create a ternary grid 'points', the necessary folder structure, and 
     # file name templates. Initialize the posterior mean and st.dev., and
     # acquisition function lists.
-    points, posterior_mean, posterior_std, acq_normalized, time_now, results_dir, rounds_to_plot = init_plots(
+    points, posterior_mean, posterior_std, acq_normalized, ref_acq_normalized, time_now, results_dir, rounds_to_plot = init_plots(
         rounds, limit_file_number, time_str, results_folder)
     
     # Fill in the lists with surfaces to plot.
-    posterior_mean, posterior_std, acq_normalized = fill_ternary_grids(posterior_mean, 
+    posterior_mean, posterior_std, acq_normalized, ref_acq_normalized = fill_ternary_grids(posterior_mean, 
                                                                        posterior_std, 
                                                                        acq_normalized, 
+                                                                       ref_acq_normalized, 
                                                                        rounds, 
                                                                        BO_objects, 
                                                                        points, 
@@ -732,7 +808,6 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
     lims_samples = [np.min(mins)/axis_scale, np.max(maxs)/axis_scale]
     lims_posterior = [np.min(posterior_mean)/axis_scale, np.max(posterior_mean)/axis_scale]
     
-    
     lims_p = [np.min([lims_samples[0], lims_posterior[0]]), 
               np.max([lims_samples[1], lims_posterior[1]])]
     lims_s = [np.min(posterior_std)/axis_scale, 
@@ -746,8 +821,10 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
         
         if i == 0:
             acq_to_plot = None # At the beginning, we have an even distribution.
+            ref_acq_to_plot = None
         else:
             acq_to_plot = acq_normalized[i-1]
+            ref_acq_to_plot = ref_acq_normalized[i-1]
             # Note i-1, this is because acq is saved at the end of each round
             # and here we plot acq at the beginning of each round.
         
@@ -771,6 +848,14 @@ def plotBO(rounds, suggestion_df, #compositions_input, degradation_input,
                       color_lims = lims_s,
                       saveas = results_dir + 'St-Dev-of-modelled-Ic-round' +
                       str(i) + '-' + time_now, close_figs = close_figs)
+        
+        if ref_acq_to_plot is not None:
+            plot_acq_and_data(points, ref_acq_to_plot, X_rounds[i].values, 
+                              color_lims = lims_a, 
+                              cbar_label = r'$Ref acq(\theta)$ in round ' + str(i),
+                              saveas = results_dir +
+                              'Ref-acq-with-single-round-samples-round'+str(i) + 
+                              '-' + time_now, close_figs = close_figs)
         
         if (limit_file_number == False):        
             

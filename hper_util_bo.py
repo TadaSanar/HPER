@@ -29,7 +29,8 @@ def data_fusion_param_builder(acquisition_function,
     
     '''
 
-    if (acquisition_function != 'EI_DF') and (acquisition_function != 'LCB_DF'):
+    if ((acquisition_function != 'EI_DF') and (acquisition_function != 'LCB_DF')
+        and (acquisition_function != 'EI_noisy_DF')):
         
         raise Exception("This function has not been designed for the " +
                         "requested acquisition function: " + 
@@ -86,9 +87,9 @@ def data_fusion_param_builder(acquisition_function,
             if p['df_noise_variance'] == None:
                 n_variance = None # Set a value for the noise variance level if you have info on this, otherwise the model learns it.
             if p['p_beta'] == None:  # For probability model
-                p_beta = 0.04 #0.05
+                p_beta = 0.22#0.32 #0.05
             if p['p_midpoint'] == None:  # For P model
-                p_midpoint = 0.33#0.5  # For P
+                p_midpoint = 0.5#0.44#0.5  # For P
 
         elif data_fusion_settings['df_target_property_name'] == 'cutoff':
 
@@ -124,7 +125,7 @@ def data_fusion_param_builder(acquisition_function,
                          'p_midpoint': p_midpoint
                          }
     
-    print(ei_df_params)
+    #print(ei_df_params)
     
     return ei_df_params
 
@@ -211,7 +212,7 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
 
     """
     
-    if acquisition_function == 'EI_DF':
+    if (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF') or (acquisition_function == 'EI_noisy_DF'):
         
         # Do data fusion. Set the parameters required for data fusion.
         acq_fun_params = data_fusion_param_builder(acquisition_function,
@@ -221,16 +222,16 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
                                               #optional_acq_params=optional_acq_params
                                               )
 
-    elif acquisition_function == 'LCB_DF':
-        
-        # Do data fusion. Set the parameters required for data fusion.
-        acq_fun_params = data_fusion_param_builder(acquisition_function,
-                                              data_fusion_settings = optional_data_fusion_settings
-                                              #data_fusion_target_property=data_fusion_property,
-                                              #data_fusion_input_variables=data_fusion_input_variables,
-                                              #optional_acq_params=optional_acq_params
-                                              )
-
+    #elif acquisition_function == 'LCB_DF':
+    #    
+    #    # Do data fusion. Set the parameters required for data fusion.
+    #    acq_fun_params = data_fusion_param_builder(acquisition_function,
+    #                                          data_fusion_settings = optional_data_fusion_settings
+    #                                         #data_fusion_target_property=data_fusion_property,
+    #                                          #data_fusion_input_variables=data_fusion_input_variables,
+    #                                         #optional_acq_params=optional_acq_params
+    #                                          )
+    #
     #elif optional_data_fusion_settings is None:
     #    
     #    raise Exception(
@@ -243,7 +244,10 @@ def acq_param_builder(acquisition_function, optional_data_fusion_settings = None
     
     # Set the rest of acquisition function parameters.
     
-    if (acquisition_function == 'EI') or (acquisition_function == 'EI_DF') or (acquisition_function == 'LCB_DF'):
+    if ((acquisition_function == 'EI') or (acquisition_function == 'EI_noisy') or
+        (acquisition_function == 'EI_DF') or 
+        (acquisition_function == 'EI_noisy_DF') or 
+        (acquisition_function == 'LCB') or (acquisition_function == 'LCB_DF')):
     
         if optional_acq_settings is not None:
             
@@ -263,7 +267,7 @@ def acq_fun_param2descr(acq_fun, acq_fun_params=None):
 
     output_str = acq_fun
 
-    if (acq_fun == 'EI_DF') or (acq_fun == 'LCB_DF'):
+    if (acq_fun == 'EI_DF') or (acq_fun == 'LCB_DF') or (acq_fun == 'EI_noisy_DF'):
 
         df_params = acq_fun_params
         output_str = (output_str + '-dftarget-' + df_params['df_target_prop'] +
@@ -345,7 +349,7 @@ def df_data_coll_param_builder(df_method=None, gradient_param=None,
                 'Data fusion data collection has not been implemented for this case.')
 
         df_data_coll_params['method'] = method
-
+        
     return df_data_coll_params
 
 
@@ -472,15 +476,16 @@ def query_target_data_from_model(k, X_rounds, Y_rounds, X_accum, Y_accum,
 
         #df = compositions_input[k].copy()
 
-    if noise_level == 0:
+    if X_rounds[k].empty != True:
         
-        preds = predict_points(gt_model_targetprop, X_rounds[k].values)[0]
-        
-    else:
-        
-        preds = predict_points_noisy(gt_model_targetprop, X_rounds[k].values, 
+        if noise_level == 0:
+            preds = predict_points(gt_model_targetprop, X_rounds[k].values)[0]
+        else:
+            preds = predict_points_noisy(gt_model_targetprop, X_rounds[k].values, 
                                      noise_level = noise_level,
                                      seed = seed)[0]
+    else:
+        preds = None
         
     # np.reshape(preds, (preds.shape[0], 1))
     Y_rounds[k] = pd.DataFrame(preds, columns=['Target value'])
@@ -564,8 +569,10 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
             
         if saveas:
                 
-            plt.gcf().savefig(filename + '.pdf', transparent = True)
-        
+            #plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.svg', transparent = True)
+            plt.gcf().savefig(filename + '.png', dpi=300)
+            
         if close_figs:
             
             plt.close()
@@ -589,7 +596,9 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
         
         if saveas:
             
-            plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.svg', transparent = True)
+            plt.gcf().savefig(filename + '.png', dpi=300)
             
         if close_figs:
             
@@ -625,7 +634,9 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
         
         if saveas:
             
-            plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.svg', transparent = True)
+            plt.gcf().savefig(filename + '.png', dpi=300)
             
         if close_figs:
             
@@ -650,7 +661,9 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
         
         if saveas:
             
-            plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.svg', transparent = True)
+            plt.gcf().savefig(filename + '.png', dpi=300)
             
         if close_figs:
             
@@ -683,7 +696,9 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
         
         if saveas:
             
-            plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.pdf', transparent = True)
+            #plt.gcf().savefig(filename + '.svg', transparent = True)
+            plt.gcf().savefig(filename + '.png', dpi=300)
             
         if close_figs:
             
@@ -709,13 +724,15 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
                         
                 if results_folder is not None:
                     
-                    filename = results_folder + 'Hyperpar-' + i
+                    filename = results_folder + 'Hyperpar-' + i + time_str
                 
                 plt.tight_layout()
                 
                 if saveas:
                     
-                    plt.gcf().savefig(filename + '.pdf', transparent = True)
+                    #plt.gcf().savefig(filename + '.pdf', transparent = True)
+                    #plt.gcf().savefig(filename + '.svg', transparent = True)
+                    plt.gcf().savefig(filename + '.png', dpi=300)
                     
                 if close_figs:
                     
@@ -738,15 +755,16 @@ def plot_basic(Y_accum, X_accum, optimum, model_optimum, rounds, time_str = None
                         
                 if results_folder is not None:
                     
-                    filename = results_folder + 'DFHyperpar-' + i
+                    filename = results_folder + 'DFHyperpar-' + i + time_str
                 
                 plt.tight_layout()
                 
                 if saveas:
                     
                     #plt.gcf().savefig(filename + '.pdf', transparent = True)
+                    #plt.gcf().savefig(filename + '.svg', transparent = True)
                     plt.gcf().savefig(filename + '.png', dpi=300)
-                
+                    
                 if close_figs:
                     
                     plt.close()
@@ -894,6 +912,58 @@ def create_optima_arrays(BO_objects, X_accum, Y_accum, rounds, materials,
 
 
 
+def create_optima_arrays_single_round(GP_model, X, Y, materials,
+                              ternary, domain_boundaries):
+    
+    # GP model is GPRegression model!
+    
+    # Minimum value vs rounds (from the samples).
+    optimum = np.full((len(materials) + 1), np.nan)
+    # Minimum value vs rounds (from the model).
+    model_optimum = np.full((len(materials) + 1), np.nan)    
+    
+    idx = np.argmin(Y, axis=0)
+    opt = Y[idx, 0]
+    loc = X[idx, :]
+    
+    optimum[0:-1] = loc
+    optimum[-1] = opt
+
+    
+    # Model optimum for unconstrained and constrained space.
+    model_optimum[0:-1], model_optimum[-1] = find_optimum(GP_model, # GPRegression model 
+                                                    Y_train = Y,
+                                                    ternary = ternary, 
+                                                    domain_boundaries = 
+                                                    domain_boundaries)
+        
+    return optimum, model_optimum
+
+def pad_list_items(list_x, target_n_rows, check_first_array = True):
+    
+    new_list = list_x.copy()
+    
+    if check_first_array == True:
+        start_idx = 0
+    else:
+        start_idx = 1
+    
+    for i in range(start_idx, len(list_x)):
+        
+        diff = target_n_rows - list_x[i].shape[0]
+        
+        if diff > 0:
+            
+            if type(new_list[i]) == np.ndarray:
+                
+                new_list[i] = np.concatenate((new_list[i], 
+                                              np.full((diff, new_list[i].shape[1]),
+                                                      np.nan)), axis = 0)
+            elif type(new_list[i]) == pd.DataFrame:
+            
+                new_list[i] = new_list[i].reindex(index = range(target_n_rows))
+            
+    return new_list
 
 
 

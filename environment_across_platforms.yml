@@ -1,4 +1,4 @@
-name: hper2
+name: hper-pyqsl
 channels:
   - defaults
 dependencies:
@@ -10,4 +10,4 @@ dependencies:
   - tqdm
   - seaborn
   - conda-build
-prefix: /u/08/atiihone/unix/anaconda3/envs/hper2
+prefix: /u/08/atiihone/unix/anaconda3/envs/hper-pyqsl

@@ -5,28 +5,11 @@ Created on Wed Mar 16 17:58:23 2022
 
 @author: armi
 """
-#from set_figure_defaults import FigureDefaults  # Copyright Antti Vepsalainen
-#import os
+from set_figure_defaults import FigureDefaults  # Copyright Antti Vepsalainen
 import matplotlib.pyplot as plt
-#import datetime
 import pickle
-#import seaborn as sn
-#import pandas as pd
 import numpy as np
-#from numpy.random import SeedSequence
 from hper_bo import bo_sim_target
-#from hper_util_bo import acq_param_builder, acq_fun_param2descr, df_data_coll_param_builder, df_data_coll_method_param2descr
-#from scipy.special import erf, erfinv
-
-#import scipy as sp
-
-#import multiprocessing as mp
-#from tqdm.contrib.concurrent import process_map
-#import tqdm
-#import time
-
-#import GPyOpt
-#import GPy
 
 import psutil
 
@@ -41,7 +24,7 @@ from hper_util_repetitions_lcb import cg, build_filenames, set_bo_settings, set_
 
 # Reduces memory leakage with Spyder IDE. Otherwise not necessary.
 import matplotlib
-matplotlib.interactive(False)
+matplotlib.interactive(True)
 
 def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
                    #gt_model_human):
@@ -80,7 +63,7 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
     # Give False if you don't want to save disk space while saving the data.
     save_disk_space = False
     # Give True if you want to close the figures immediately after they are created.
-    close_figs = True
+    close_figs = False
     
     # Give range(bo_params['n_repetitions']) if you want to run all the repeats.
     # Give specific indices if you want to run only some of them (e.g., the
@@ -252,12 +235,12 @@ def repeated_tests(m, starting_point_candidates):#, gt_model_targetprop,
         del X_accum, Y_accum, surrogate_model_params, data_fusion_params
         del pickle_variables
 
-
-if __name__ == "__main__":
-    
-    ###############################################################################
-    # MAIN SETTINGS FOR HITL BENCHMARKS
-    
+##
+# Script starts here
+##
+###############################################################################
+# MAIN SETTINGS FOR HITL BENCHMARKS
+if __name__=="__main__":
     # Paths to the GPy GPRegression models that will be used for fetching source data.
     path_gtmodel_targetprop = './Source_data/gt_model_target_variable_edges'#'./Source_data/stability_gt_model_GPR' # GPy.models.gp_regression.GPRegression
     #path_gtmodel_targetprop = './Source_data/stability_model_equal_AB'
@@ -282,9 +265,9 @@ if __name__ == "__main__":
     #max_init_pts = 3
     #init_points = create_ternary_starting_points(
     #    n_reps=max_reps, n_init=max_init_pts)
-    
+
     init_points = np.array(init_points)
-    
+
     
     
     ###############################################################################
@@ -294,13 +277,13 @@ if __name__ == "__main__":
     for ip in range(init_points.shape[1]):
         
         plt.scatter(init_points[:, ip, 0], init_points[:, ip, 1], label = 'P' + str(ip))
-        
+
     plt.xlabel('$x_0$')
     plt.ylabel('$x_1$')
     plt.title('The ' + str(init_points.shape[1]) + ' initial points for each repetition of BO')
     plt.legend()
     plt.show()
-    
+
     print('Sanity-check of the dimensions of the initial points. Compositions should sum up to one, e.g. for the first repeat: ', np.sum(init_points[0, :, :], axis = 1))
     
     ## Number of cpus available to this job.
@@ -313,9 +296,9 @@ if __name__ == "__main__":
     
     # Load source data models. The implemented code assumes these models do not
     # output scaled values but data in real units.
-    global gt_model_targetprop
+    #global gt_model_targetprop
     gt_model_targetprop = load_GP_model(path_gtmodel_targetprop) # Perovskite stability data (units in [px*min]), 0 px*min is fully stable and high values are instable
-    global gt_model_human
+    #global gt_model_human
     gt_model_human = load_GP_model(path_gtmodel_humanevals) # Human opinion on sample quality data, scale [0,1], where 1 is bad quality and 0 is high quality.
     
     # This is a serial version of the code.
@@ -324,16 +307,16 @@ if __name__ == "__main__":
         for j in range(1):#n_init_points):
             
             repeated_tests(i, starting_point_candidates = init_points)#[[j],:])#,
-                       #gt_model_targetprop = gt_model_targetprop,
-                       #gt_model_human = gt_model_human)
+            #gt_model_targetprop = gt_model_targetprop,
+            #gt_model_human = gt_model_human)
     '''    
     # This is a parallelized version of the code.
     # Create a pool of workers (corresponding to Ncpus)
     with mp.Pool(ncpus) as pool:
-        
-        r = process_map(partial(repeated_tests,
-                                starting_point_candidates=init_points),
-                        indices_methods, max_workers=ncpus)
+    
+    r = process_map(partial(repeated_tests,
+    starting_point_candidates=init_points),
+    indices_methods, max_workers=ncpus)
     
     '''
 

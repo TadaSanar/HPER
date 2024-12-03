@@ -76,7 +76,7 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
                                                     normalize_Y=True, # The predict() function implemented in this file assumes that BO has been implemented with zero mean unit std normalization (default in GPyOpt). Modify the predict function if this is not the case.
                                                     X=X,
                                                     Y=Y,
-                                                    evaluator_type='local_penalization',
+                                                    evaluator_type='local_penalization', #'sequential', #
                                                     batch_size=batch_size,
                                                     acquisition_jitter=jitter,
                                                     exploration_weight = jitter,
@@ -86,10 +86,10 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
                                                     #max_iters = 2000,#1000,
                                                     exact_feval = exact_feval,
                                                     ARD=False,
-                                                    kernel = Matern52#RBF#input_dim=3, ARD = True)#, 
+                                                    kernel = RBF,#,#input_dim=3, ARD = True)#, 
                                                     # variance = 54468035, 
                                                     # lengthscale = 0.08)
-                                                    #num_cores = 1
+                                                    num_cores = 1
                                                     #acquisition_optimizer = 'DIRECT'
                                                     )
     
@@ -114,7 +114,7 @@ def run_bo(X, Y, bounds, constraints, acquisition_function, acq_fun_params,
                                       'gaussian_noise': gaussian_noise
                                           }
     
-    print(current_surrogate_model_params)
+    #print(current_surrogate_model_params)
     
     return BO_object, x_next, current_surrogate_model_params
 

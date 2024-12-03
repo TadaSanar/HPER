@@ -204,49 +204,47 @@ def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     #n_j = len(jitters)
+
+    if (m % n_hpars) == 0:
+
+        data_fusion_property = None
+        df_data_coll_method = None
+        acquisition_function = 'EI'
+        c_grad = None
+        c_e = None
+        # Which data to fetch (if you only fetch and do not calculate new)?
+        fetch_file_date = None
+        
+    elif (m % n_hpars) == 1:
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_all'
+        acquisition_function = 'EI_DF'
+        c_grad = None
+        c_e = None
+        # Which data to fetch (if you only fetch and do not calculate new)?
+        fetch_file_date = None
+        
+    elif (m % n_hpars) < (n_hpars - n_exclz):
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_necessary_eig'
+        c_grad = hyperparams_eig[(m % n_hpars)-2][0]
+        c_e = hyperparams_eig[(m % n_hpars)-2][1]
+        acquisition_function = 'EI_DF'
+        # Which data to fetch (if you only fetch and do not calculate new)?
+        fetch_file_date = None
+        
+    else:
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_necessary_exclz'
+        c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
+        c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
+        acquisition_function = 'EI_DF'
+        # Which data to fetch (if you only fetch and do not calculate new)?
+        fetch_file_date = None
     
-    if (m > -1):
-
-        if (m % n_hpars) == 0:
-
-            data_fusion_property = None
-            df_data_coll_method = None
-            acquisition_function = 'EI'
-            c_grad = None
-            c_e = None
-            # Which data to fetch (if you only fetch and do not calculate new)?
-            fetch_file_date = None
-            
-        elif (m % n_hpars) == 1:
-
-            data_fusion_property = 'quality'
-            df_data_coll_method = 'model_all'
-            acquisition_function = 'EI_DF'
-            c_grad = None
-            c_e = None
-            # Which data to fetch (if you only fetch and do not calculate new)?
-            fetch_file_date = None
-            
-        elif (m % n_hpars) < (n_hpars - n_exclz):
-
-            data_fusion_property = 'quality'
-            df_data_coll_method = 'model_necessary_eig'
-            c_grad = hyperparams_eig[(m % n_hpars)-2][0]
-            c_e = hyperparams_eig[(m % n_hpars)-2][1]
-            acquisition_function = 'EI_DF'
-            # Which data to fetch (if you only fetch and do not calculate new)?
-            fetch_file_date = None
-            
-        else:
-
-            data_fusion_property = 'quality'
-            df_data_coll_method = 'model_necessary_exclz'
-            c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
-            c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
-            acquisition_function = 'EI_DF'
-            # Which data to fetch (if you only fetch and do not calculate new)?
-            fetch_file_date = None
-        
-        jitter = jitters[m // n_hpars]
-        
+    jitter = jitters[m // n_hpars]
+    
     return data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date

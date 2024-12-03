@@ -27,7 +27,6 @@ def predict_points(gpmodel, x_points, Y_data=None):
         # Prediction output of the GPModel is mean, standard deviation. So let's
         # dig out the GPRegression model and predict with that.
         posterior_mean, posterior_var = gpmodel.model.predict_noiseless(x_points)
-        #posterior_var = (posterior_std)**2
         posterior_std = np.sqrt(posterior_var)
         
     # If the model has been trained with already-scaled (zero mean, unit
@@ -35,8 +34,8 @@ def predict_points(gpmodel, x_points, Y_data=None):
     # the predictions to the correct units.
     if Y_data is not None:
         posterior_mean_true_units = posterior_mean * \
-            np.std(Y_data) + np.mean(Y_data)
-        posterior_std_true_units = posterior_std * np.std(Y_data)
+            np.nanstd(Y_data) + np.nanmean(Y_data)
+        posterior_std_true_units = posterior_std * np.nanstd(Y_data)
 
         posterior_mean = posterior_mean_true_units
         posterior_var = posterior_std_true_units**2
@@ -67,14 +66,29 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
     if Y_data is not None:
         
         # Scale back.
-        gaussian_noise_variance = gaussian_noise_variance * np.var(Y_data)
+        gaussian_noise_variance = gaussian_noise_variance * np.nanvar(Y_data)
         
     # Adding Gaussian noise to the mean predictions.
-    posterior_mean_noisy = normalvariate(posterior_mean, 
+    posterior_mean_noisy = np.zeros(posterior_mean.shape)
+    for i in range(posterior_mean.shape[0]):
+        posterior_mean_noisy[i,:] = normalvariate(posterior_mean[i, :], 
                                  np.sqrt(gaussian_noise_variance)*noise_level)
-        
-        #np.random.normal(
-        #posterior_mean, np.sqrt(gaussian_noise_variance)*noise_level)#np.sqrt(posterior_var)*noise_level)
+    
+    #test_distr = np.zeros((1000,))
+    #for i in range(1000):
+    #    test_distr[i] = normalvariate(posterior_mean[0, 0], 
+    #                             np.sqrt(gaussian_noise_variance)*noise_level)
+    
+    #import matplotlib.pyplot as plt
+    #plt.figure()
+    #plt.hist(test_distr, bins = 50)
+    #plt.scatter([posterior_mean[0, 0]], [1], c = 'k')
+    #plt.scatter([posterior_mean[0, 0]-np.sqrt(gaussian_noise_variance)*noise_level], [5], c = 'r')
+    #plt.scatter([posterior_mean[0, 0]-np.std(test_distr)], [10], c = 'm')
+    #plt.show()
+    
+    #np.random.normal(
+    #posterior_mean, np.sqrt(gaussian_noise_variance)*noise_level)#np.sqrt(posterior_var)*noise_level)
     
     #print('\nPredict points noisy: ', posterior_mean_noisy, posterior_mean, 
     #      np.sqrt(gaussian_noise_variance[0]), noise_level, '\n')
@@ -82,7 +96,7 @@ def predict_points_noisy(gpmodel, x_points, Y_data=None, noise_level = 1,
     #logging.log(21, 'Posterior mean: ' + str(posterior_mean))
     #logging.log(21, 'Posterior mean noisy: ' + str(posterior_mean_noisy))
     #logging.log(21, 'Seed: ' + str(np.random.get_state()[1][0]))
-    
+    #print(posterior_mean_noisy-posterior_mean)
     #draws = np.zeros((1000,))
     #for i in range(1000):
     #    draws[i] = normalvariate(posterior_mean[0], 
@@ -117,7 +131,7 @@ def GP_model(data_fusion_data, data_fusion_target_variable = 'dGmix (ev/f.u.)',
             X = X.values # Optimization did not succeed without type conversion.
             Y = Y.values
             
-            init_hyperpars, lims_kernel_var, lims_noise_var = evaluate_GP_model_constraints(
+            init_hyperpars, lims_kernel_var, lims_noise_var, lims_kernel_ls = evaluate_GP_model_constraints(
                 Y, noise_variance, variance, lengthscale, 
                 optimize_hyperpar = optimize_hyperpar, 
                 domain_boundaries = domain_boundaries)
@@ -134,7 +148,8 @@ def GP_model(data_fusion_data, data_fusion_target_variable = 'dGmix (ev/f.u.)',
             
             constrain_optimize_GP_model(model, init_hyperpars = init_hyperpars,
                                         lims_kernel_var = lims_kernel_var,
-                                        lims_noise_var = lims_noise_var, 
+                                        lims_noise_var = lims_noise_var,
+                                        lims_kernel_ls = lims_kernel_ls,
                                         optimize_hyperpar = optimize_hyperpar)
             
     return model
@@ -145,6 +160,7 @@ def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
                                                          'kernel_ls': None},
                                 lims_kernel_var = [None, None], 
                                 lims_noise_var = [None, None], 
+                                lims_kernel_ls = [None, None],
                                 optimize_hyperpar = True, warning = False, 
                                 verbose = False, max_iters = 1000, 
                                 num_restarts = 2):
@@ -165,6 +181,10 @@ def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
                                                        lims_kernel_var[1],
                                                        warning = warning)
                 
+                model.Mat52.lengthscale.constrain_bounded(lims_kernel_ls[0], 
+                                                       lims_kernel_ls[1],
+                                                       warning = warning)
+                
             else:
                 
                 # The upper bound is set to the noise level that corresponds to
@@ -178,11 +198,14 @@ def constrain_optimize_GP_model(model, init_hyperpars = {'noise_var': None,
                 model.Mat52.variance.constrain_fixed(init_hyperpars['kernel_var'], 
                                                      warning = warning)
                 
+                model.Mat52.lengthscale.constrain_fixed(init_hyperpars['kernel_ls'], 
+                                                     warning = warning)
+            #print('LS before opt: ', model.Mat52.lengthscale.values)    
             # optimize
             model.optimize_restarts(max_iters = max_iters, 
                                     num_restarts = num_restarts, 
                                     verbose = verbose)
-            
+            #print('LS after opt: ', model.Mat52.lengthscale.values)    
             #message = ('Human Gaussian noise variance in model output: ' + 
             #           str(model.Gaussian_noise.variance[0]))
             #logging.log(21, message)
@@ -261,42 +284,50 @@ def evaluate_GP_model_constraints(Y, noise_variance, kernel_variance,
             
             kernel_var_upper_limit += kernel_var_lower_limit
         
+        # Almost open boundaries for the lengthscale optimizations because they
+        # do not typically cause issues.
+        kernel_ls_lower_limit = 0
+        kernel_ls_upper_limit = (domain_boundaries[1] - domain_boundaries[0]) * 5
+        
     else:
         
         noise_var_lower_limit = None
         noise_var_upper_limit = None
         kernel_var_lower_limit = None
         kernel_var_upper_limit = None
+        kernel_ls_lower_limit = None
+        kernel_ls_upper_limit = None
     
     init_hyperpars = {'noise_var': noise_var, 'kernel_var': kernel_var, 
                       'kernel_ls': kernel_ls}
     
     lims_kernel_var = [kernel_var_lower_limit, kernel_var_upper_limit]
     lims_noise_var = [noise_var_lower_limit, noise_var_upper_limit]
+    lims_kernel_ls = [kernel_ls_lower_limit, kernel_ls_upper_limit]
     
-    return init_hyperpars, lims_kernel_var, lims_noise_var 
+    return init_hyperpars, lims_kernel_var, lims_noise_var, lims_kernel_ls
 
 def extract_gpmodel_params(gpmodel):
     
-    if type(gpmodel.kern) is GPy.kern.Add:
+    if type(gpmodel.kern) is GPy.kern.src.add.Add:
         
         if gpmodel.kern.parameter_names()[0].find('Mat52') > -1:
             
-            lengthscale = gpmodel.kern.Mat52.lengthscale.values
+            lengthscale = gpmodel.kern.Mat52.lengthscale.values # Works for ARD and normal.
             variance = gpmodel.kern.Mat52.variance[0]
         
-        elif gpmodel.kern.parameter_names()[0].find('RBF') > -1:
+        elif gpmodel.kern.parameter_names()[0].find('rbf') > -1:
             
-            lengthscale = gpmodel.kern.RBF.lengthscale.values
-            variance = gpmodel.kern.RBF.variance[0]
+            lengthscale = gpmodel.kern.rbf.lengthscale.values
+            variance = gpmodel.kern.rbf.variance[0]
         
     else:
         
-        lengthscale = gpmodel.kern.lengthscale.values
-        variance = gpmodel.kern.variance[0]
+        lengthscale = gpmodel.kern.lengthscale.values.copy()
+        variance = gpmodel.kern.variance[0].copy()
         
     
-    gaussian_noise = gpmodel.Gaussian_noise.variance[0]
+    gaussian_noise = gpmodel.Gaussian_noise.variance[0].copy()
     
     
     return lengthscale, variance, gaussian_noise

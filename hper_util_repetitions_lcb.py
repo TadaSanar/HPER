@@ -65,7 +65,7 @@ def cg(p_above, std=1):
 
 
 def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr, 
-                    fetch_file_date=None, m=None):
+                    fetch_file_date=None, m=None, additional_idx = None):
 
     if fetch_file_date is None:
 
@@ -75,6 +75,10 @@ def build_filenames(folder, bo_params, acq_fun_descr, df_data_coll_descr,
         if m is not None:
 
             time_now = time_now + '-m' + str(m)
+            
+        if additional_idx is not None:
+            
+            time_now = time_now + '-' + str(additional_idx)
 
     else:
 
@@ -152,7 +156,8 @@ def set_bo_settings(bo_params, acquisition_function, jitter,
         optional_data_fusion_settings = {'df_target_property_name': data_fusion_property,
                                          'df_input_variables': bo_params['materials']
                                          }
-        
+    
+    
     acq_fun_params = acq_param_builder(acquisition_function,
                                        optional_data_fusion_settings = optional_data_fusion_settings,
                                        #data_fusion_property=data_fusion_property,
@@ -160,7 +165,6 @@ def set_bo_settings(bo_params, acquisition_function, jitter,
                                        #data_fusion_model = gt_model_human,
                                        optional_acq_settings = {'jitter': jitter}
                                        )
-    
     acq_fun_descr = acq_fun_param2descr(
         acquisition_function, acq_fun_params=acq_fun_params)
     
@@ -186,7 +190,7 @@ def set_bo_settings(bo_params, acquisition_function, jitter,
         df_data_coll_params)
         
     return acq_fun_descr, acq_fun_params, df_data_coll_descr, df_data_coll_params
-
+'''
 def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
     
     hyperparams_eig = []
@@ -204,49 +208,97 @@ def set_repeat_settings(m, c_g, c_exclz, c_eig, jitters):
     n_exclz = len(hyperparams_exclz)
     n_hpars = 2 + n_eig + n_exclz
     #n_j = len(jitters)
-    
-    if (m > -1):
+    if (m % n_hpars) == 0:
 
-        if (m % n_hpars) == 0:
-
-            data_fusion_property = None
-            df_data_coll_method = None
-            acquisition_function = 'LCB'
-            c_grad = None
-            c_e = None
-            # Which data to fetch (if you only fetch and do not calculate new)?
-            fetch_file_date = None
-            
-        elif (m % n_hpars) == 1:
-
-            data_fusion_property = 'quality'
-            df_data_coll_method = 'model_all'
-            acquisition_function = 'LCB_DF'
-            c_grad = None
-            c_e = None
-            # Which data to fetch (if you only fetch and do not calculate new)?
-            fetch_file_date = None
-            
-        elif (m % n_hpars) < (n_hpars - n_exclz):
-
-            data_fusion_property = 'quality'
-            df_data_coll_method = 'model_necessary_eig'
-            c_grad = hyperparams_eig[(m % n_hpars)-2][0]
-            c_e = hyperparams_eig[(m % n_hpars)-2][1]
-            acquisition_function = 'LCB_DF'
-            # Which data to fetch (if you only fetch and do not calculate new)?
-            fetch_file_date = None
-            
-        else:
-
-            data_fusion_property = 'quality'
-            df_data_coll_method = 'model_necessary_exclz'
-            c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
-            c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
-            acquisition_function = 'LCB_DF'
-            # Which data to fetch (if you only fetch and do not calculate new)?
-            fetch_file_date = None
+        data_fusion_property = None
+        df_data_coll_method = None
+        acquisition_function = 'LCB'
+        c_grad = None
+        c_e = None
+        # Which data to fetch (if you only fetch and do not calculate new)?
+        fetch_file_date = None
         
-        jitter = jitters[m // n_hpars]
+    elif (m % n_hpars) == 1:
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_all'
+        acquisition_function = 'LCB_DF'
+        c_grad = None
+        c_e = None
+        # Which data to fetch (if you only fetch and do not calculate new)?
+        fetch_file_date = None
+        
+    elif (m % n_hpars) < (n_hpars - n_exclz):
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_necessary_eig'
+        c_grad = hyperparams_eig[(m % n_hpars)-2][0]
+        c_e = hyperparams_eig[(m % n_hpars)-2][1]
+        acquisition_function = 'LCB_DF'
+        # Which data to fetch (if you only fetch and do not calculate new)?
+        fetch_file_date = None
+        
+    else:
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_necessary_exclz'
+        c_grad = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][0]
+        c_e = hyperparams_exclz[(m % n_hpars) - (n_hpars - n_exclz)][1]
+        acquisition_function = 'LCB_DF'
+        # Which data to fetch (if you only fetch and do not calculate new)?
+        fetch_file_date = None
+    
+    jitter = jitters[m // n_hpars]
         
     return data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e, jitter, fetch_file_date
+'''
+
+def set_repeat_settings_simplified(m, c_g, c_exclz, c_eig, bo_params):
+    
+    if bo_params['acquisition_function'].find('LCB') >= 0:
+        af_base = 'LCB'
+    
+    elif bo_params['acquisition_function'].find('EI_noisy') >= 0:
+        af_base = 'EI_noisy'
+        
+    elif bo_params['acquisition_function'].find('EI') >= 0:
+        af_base = 'EI'
+    
+    else:
+        raise Exception('Unknown acquisition function (' + 
+                        bo_params['acquisition_function'] +
+                        ') for the data fusion implementation!')
+    
+    if m  == 0:
+
+        data_fusion_property = None
+        df_data_coll_method = None
+        acquisition_function = af_base # Never use data fusion
+        c_grad = None
+        c_e = None
+        
+    if m == 1:
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_all'
+        acquisition_function = bo_params['acquisition_function']
+        c_grad = None
+        c_e = None
+        
+    if m == 2:
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_necessary_eig'
+        c_grad = c_g
+        c_e = c_eig
+        acquisition_function = bo_params['acquisition_function']
+        
+    if m == 3:
+
+        data_fusion_property = 'quality'
+        df_data_coll_method = 'model_necessary_exclz'
+        c_grad = c_g
+        c_e = c_exclz
+        acquisition_function = bo_params['acquisition_function']
+    
+    return data_fusion_property, df_data_coll_method, acquisition_function, c_grad, c_e
